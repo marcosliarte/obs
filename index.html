@@ -577,34 +577,50 @@ function activeSocials(){
 function renderSocialBadges(){
   const stageEl = document.getElementById('stage');
   if(!stageEl) return;
-  // remove badges anteriores
   stageEl.querySelectorAll('.social-badges').forEach(el => el.remove());
+
   const list = activeSocials();
   if(!list.length) return;
-  // procura a janela da webcam (qualquer .win com .cam-fill dentro)
+
+  // acha a webcam (qualquer .win com .cam-fill dentro)
   const camWindows = stageEl.querySelectorAll('.win');
   let camWin = null;
   for (const w of camWindows){
     if (w.querySelector('.cam-fill')){ camWin = w; break; }
   }
-  if(!camWin) return; // cena sem webcam (start/brb/end)
+  if(!camWin) return;
 
-  const camBody = camWin.querySelector('.win-body') || camWin;
   const badges = document.createElement('div');
   badges.className = 'social-badges';
-  badges.style.left = '0';
-  badges.style.right = '0';
-  badges.style.bottom = '0';
-  badges.style.justifyContent = 'center';
-
   badges.innerHTML = list.map(({key, handle}) => `
     <div class="social-badge ${key}">
       <span class="si">${socialIcons[key]}</span>
       <span class="handle">@${escapeHtml(handle)}</span>
     </div>
   `).join('');
+  badges.style.justifyContent = 'center';
 
-  camBody.appendChild(badges);
+  // No Just Chatting a webcam é gigante: coloca DENTRO dela, no canto inferior
+  if (state.scene === 'chatting') {
+    const camBody = camWin.querySelector('.win-body') || camWin;
+    badges.style.left = '0';
+    badges.style.right = '0';
+    badges.style.bottom = '8px';
+    badges.style.width = 'auto';
+    camBody.appendChild(badges);
+    return;
+  }
+
+  // Demais cenas: posiciona ABAIXO da webcam, sem mexer no tamanho dela
+  const stageRect = stageEl.getBoundingClientRect();
+  const camRect   = camWin.getBoundingClientRect();
+  const topPx  = camRect.bottom - stageRect.top + 8;
+  const leftPx = camRect.left - stageRect.left;
+  const widthPx = camRect.width;
+  badges.style.top    = (topPx / stageRect.height * 100) + '%';
+  badges.style.left   = (leftPx / stageRect.width * 100) + '%';
+  badges.style.width  = (widthPx / stageRect.width * 100) + '%';
+  stageEl.appendChild(badges);
 }
 
 /* =========================================================================
@@ -802,7 +818,7 @@ const scenes = {
         <div class="win" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/11;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
         </div>
-        <div class="win" style="top:42%; right:2.5%; width:24%; height:46%;">
+        <div class="win" style="top:50%; right:2.5%; width:24%; height:38%;">
           <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
@@ -818,7 +834,7 @@ const scenes = {
         <div class="win" style="top:39.5%; left:3%; width:94%; aspect-ratio:16/9;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>LIVE</div></div>
         </div>
-        <div class="win" style="bottom:7%; left:3%; width:94%; height:22%;">
+        <div class="win" style="bottom:7%; left:3%; width:94%; height:17%;">
           <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span></div>
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
