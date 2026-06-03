@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stream Overlay Kit — Minimal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Archivo+Expanded:wght@600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #d6f24b;          /* cor de destaque — troque no seletor */
+    --accent-soft: rgba(214, 242, 75, 0.15);
+    --bg: #0c0c0e;
+    --bg-soft: #141417;
+    --panel: rgba(255, 255, 255, 0.03);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --text: #f5f5f6;
+    --text-dim: #8a8a92;
+    --radius: 18px;
+    --gap: 18px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Archivo', system-ui, sans-serif;
+    background: #050506;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ===================== CONTROLES (não vão pro OBS) ===================== */
+  .controls {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(8, 8, 10, 0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 14px 22px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+  .controls h1 {
+    font-family: 'Archivo Expanded', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-right: 8px;
+  }
+  .controls h1 span { color: var(--accent); }
+  .ctrl-group { display: flex; align-items: center; gap: 8px; }
+  .ctrl-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+
+  .seg { display: flex; background: var(--bg-soft); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button {
+    background: transparent; border: none; color: var(--text-dim);
+    padding: 6px 14px; border-radius: 7px; font-family: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s;
+  }
+  .seg button.active { background: var(--accent); color: #0a0a0a; }
+  .seg button:not(.active):hover { color: var(--text); }
+
+  .scene-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .scene-tabs button {
+    background: var(--bg-soft); border: 1px solid var(--panel-border); color: var(--text-dim);
+    padding: 7px 13px; border-radius: 9px; font-family: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s;
+  }
+  .scene-tabs button.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .scene-tabs button:not(.active):hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+  .color-dots { display: flex; gap: 6px; align-items: center; }
+  .color-dots button {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15);
+    cursor: pointer; padding: 0; transition: transform 0.15s;
+  }
+  .color-dots button:hover { transform: scale(1.15); }
+  .color-dots button.active { border-color: #fff; transform: scale(1.1); }
+  input[type="color"] { width: 26px; height: 26px; border: none; border-radius: 6px; background: none; cursor: pointer; }
+
+  .hint-bar {
+    background: var(--accent-soft); border-bottom: 1px solid var(--panel-border);
+    padding: 8px 22px; font-size: 12px; color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+  }
+  .hint-bar b { color: var(--accent); }
+
+  /* ===================== PALCO / STAGE ===================== */
+  .stage-wrap {
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 40px 20px; min-height: 80vh;
+  }
+  .stage {
+    position: relative; background: var(--bg);
+    overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.06);
+    /* checkerboard pra indicar transparência no preview */
+    background-image:
+      linear-gradient(45deg, #18181b 25%, transparent 25%),
+      linear-gradient(-45deg, #18181b 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #18181b 75%),
+      linear-gradient(-45deg, transparent 75%, #18181b 75%);
+    background-size: 24px 24px;
+    background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+  }
+  .stage.landscape { width: min(1100px, 95vw); aspect-ratio: 16 / 9; }
+  .stage.portrait  { width: min(420px, 90vw); aspect-ratio: 9 / 16; }
+
+  /* esconde tudo no modo OBS */
+  body.obs .controls, body.obs .hint-bar, body.obs .react-editor { display: none !important; }
+  body.obs .stage-wrap { padding: 0; min-height: 100vh; align-items: stretch; }
+  body.obs .stage { box-shadow: none; border: none; background: transparent !important; }
+  /* no OBS o overlay preenche a viewport inteira, ignorando aspect-ratio do preview */
+  body.obs .stage.landscape,
+  body.obs .stage.portrait { width: 100vw !important; height: 100vh !important; aspect-ratio: auto !important; }
+
+  /* ===================== PAINEL DE EDIÇÃO REACT ===================== */
+  .react-editor {
+    display: none;
+    background: var(--bg-soft);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 14px 22px;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .react-editor.show { display: flex; }
+  body.obs .react-editor { display: none !important; }
+  .react-editor .ed-label {
+    font-size: 11px; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 700;
+  }
+  .react-editor input[type="text"], .react-editor input[type="number"] {
+    background: var(--bg); border: 1px solid var(--panel-border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-family: inherit; font-size: 13px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .react-editor input:focus { border-color: var(--accent); }
+  .react-editor input[type="text"] { width: 240px; }
+  .react-editor input[type="number"] { width: 64px; }
+  .react-editor .field { display: flex; flex-direction: column; gap: 4px; }
+  .react-editor .field.hide { display: none; }
+  .react-editor .field small { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+  .copy-link, .copy-link-main {
+    background: var(--accent); color: #0a0a0a; border: none; border-radius: 9px;
+    padding: 9px 14px; font-family: inherit; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+  }
+  .copy-link:hover, .copy-link-main:hover { opacity: 0.85; }
+  .copy-link.ok, .copy-link-main.ok { background: #34d399; }
+
+  /* ===================== JANELA / WINDOW (componente base) ===================== */
+  .win {
+    position: absolute;
+    background: var(--bg-soft);
+    border-radius: var(--radius);
+    border: 1px solid var(--panel-border);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  /* moldura de destaque animada */
+  .win.accent-frame::after {
+    content: ''; position: absolute; inset: 0; border-radius: var(--radius);
+    border: 2px solid var(--accent); pointer-events: none;
+    box-shadow: 0 0 18px var(--accent-soft), inset 0 0 0 1px rgba(0,0,0,0.4);
+    animation: framePulse 4s ease-in-out infinite;
+  }
+  @keyframes framePulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+  .win-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; background: rgba(0,0,0,0.25);
+    border-bottom: 1px solid var(--panel-border);
+    flex-shrink: 0;
+  }
+  .win-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); opacity: 0.4; }
+  .win-dot.live { background: var(--accent); opacity: 1; animation: blink 2s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .win-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-dim);
+  }
+  .win-title b { color: var(--accent); }
+  .win-tag {
+    margin-left: auto; font-family: 'Space Mono', monospace; font-size: 10px;
+    color: var(--accent); letter-spacing: 0.05em;
+  }
+  .win-body { flex: 1; position: relative; overflow: hidden; }
+
+  /* placeholder visual da cam/video */
+  .cam-fill, .video-fill, .game-fill {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+  }
+  .cam-fill { background: radial-gradient(circle at 50% 40%, #1f1f24, #0e0e10); }
+  .video-fill { background: radial-gradient(circle at 50% 40%, #1a1a2e, #0c0c14); }
+  .game-fill { background: radial-gradient(circle at 30% 30%, #16161c, #0a0a0c); }
+  .fill-icon { font-size: 32px; opacity: 0.25; }
+  .fill-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
+  .fill-sub { font-size: 10px; color: var(--text-dim); opacity: 0.6; font-family: 'Space Mono', monospace; }
+
+  /* ===================== CHAT dentro de janela ===================== */
+  .chat-stream {
+    position: absolute; inset: 0; padding: 10px;
+    display: flex; flex-direction: column-reverse; gap: 6px; overflow: hidden;
+  }
+  .chat-stream::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40px;
+    background: linear-gradient(to bottom, var(--bg-soft), transparent); z-index: 2; pointer-events: none;
+  }
+  .cmsg { animation: cmsgIn 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+  @keyframes cmsgIn { from { opacity:0; transform: translateY(6px); filter: blur(3px);} to {opacity:1; transform:none; filter:none;} }
+  .cmsg-user { font-size: 12px; font-weight: 700; color: var(--cu, var(--accent)); }
+  .cmsg-text { font-size: 12px; color: var(--text); line-height: 1.4; }
+
+  /* ===================== overlay info bar (nome / agora jogando) ===================== */
+  .info-strip {
+    position: absolute; display: flex; align-items: center; gap: 10px;
+    background: var(--bg-soft); border: 1px solid var(--panel-border);
+    border-radius: 12px; padding: 8px 14px;
+  }
+  .info-strip .pill {
+    background: var(--accent); color: #0a0a0a; font-weight: 800; font-size: 10px;
+    padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .info-strip .label { font-size: 12px; font-weight: 600; }
+  .info-strip .label span { color: var(--text-dim); }
+
+  /* ===================== FULLSCREEN scenes (start/brb/end) ===================== */
+  .fs {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 22px;
+    background: var(--bg);
+  }
+  .fs-bg-grid {
+    position: absolute; inset: 0; opacity: 0.4;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(circle at 50% 50%, black, transparent 75%);
+  }
+  .fs-glow {
+    position: absolute; width: 60%; aspect-ratio: 1; border-radius: 50%;
+    background: var(--accent); filter: blur(120px); opacity: 0.12;
+    animation: glowFloat 8s ease-in-out infinite;
+  }
+  @keyframes glowFloat { 0%,100%{transform: translate(-10%, -5%);} 50%{transform: translate(10%, 5%);} }
+
+  .fs-kicker {
+    font-family: 'Space Mono', monospace; font-size: 13px; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--accent); z-index: 2;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .fs-kicker::before, .fs-kicker::after { content:''; width: 30px; height:1px; background: var(--accent); opacity: 0.5; }
+  .fs-title {
+    font-family: 'Archivo Expanded', sans-serif; font-weight: 800;
+    font-size: clamp(34px, 6vw, 76px); line-height: 0.95; text-align: center;
+    letter-spacing: -0.02em; z-index: 2; text-transform: uppercase;
+  }
+  .stage.portrait .fs-title { font-size: clamp(30px, 11vw, 52px); }
+  .fs-title em { color: var(--accent); font-style: normal; }
+  .fs-sub { font-size: 14px; color: var(--text-dim); z-index: 2; text-align: center; max-width: 80%; }
+
+  /* loader dots */
+  .fs-dots { display: flex; gap: 8px; z-index: 2; }
+  .fs-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); display: block; animation: dotJump 1.4s ease-in-out infinite; }
+  .fs-dots i:nth-child(2){ animation-delay: 0.2s; }
+  .fs-dots i:nth-child(3){ animation-delay: 0.4s; }
+  @keyframes dotJump { 0%,60%,100%{transform: translateY(0); opacity:0.4;} 30%{transform: translateY(-10px); opacity:1;} }
+
+  /* webcam corner badge */
+  .live-badge {
+    position: absolute; top: 12px; left: 12px; z-index: 3;
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 8px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    backdrop-filter: blur(8px);
+  }
+  .live-badge i { width: 7px; height: 7px; border-radius: 50%; background: #ff4040; animation: blink 1.5s infinite; }
+
+  /* scanline shimmer on accent frames */
+  .shimmer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: var(--radius); }
+  .shimmer::before {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 60%; height: 200%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+    transform: rotate(18deg); animation: sweep 6s ease-in-out infinite;
+  }
+  @keyframes sweep { 0%{ left:-60%;} 50%{left:120%;} 100%{left:120%;} }
+
+  /* footer ticker */
+  .ticker {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+    background: var(--accent); color: #0a0a0a; overflow: hidden; white-space: nowrap;
+    font-weight: 700; font-size: 12px; padding: 7px 0; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .ticker div { display: inline-block; animation: scroll 18s linear infinite; }
+  .ticker span { margin: 0 28px; }
+  @keyframes scroll { from{transform: translateX(0);} to{transform: translateX(-50%);} }
+
+  .clock {
+    position: absolute; z-index: 3; font-family: 'Space Mono', monospace;
+    font-size: 13px; color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== PAINEL DE CONTROLE ===================== -->
+<div class="controls">
+  <h1>STREAM<span>KIT</span></h1>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Formato</span>
+    <div class="seg" id="formatSeg">
+      <button class="active" data-format="landscape">Twitch 16:9</button>
+      <button data-format="portrait">TikTok 9:16</button>
+    </div>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Cena</span>
+    <div class="scene-tabs" id="sceneTabs">
+      <button class="active" data-scene="game">Jogo</button>
+      <button data-scene="react">React</button>
+      <button data-scene="reactfree">React Livre</button>
+      <button data-scene="chatting">Just Chatting</button>
+      <button data-scene="start">Começando</button>
+      <button data-scene="brb">Volto já</button>
+      <button data-scene="end">Fim</button>
+    </div>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Cor</span>
+    <div class="color-dots" id="colorDots">
+      <button class="active" style="background:#d6f24b" data-color="#d6f24b"></button>
+      <button style="background:#5b8cff" data-color="#5b8cff"></button>
+      <button style="background:#ff5b7f" data-color="#ff5b7f"></button>
+      <button style="background:#ff9f43" data-color="#ff9f43"></button>
+      <button style="background:#2dd4bf" data-color="#2dd4bf"></button>
+      <button style="background:#c084fc" data-color="#c084fc"></button>
+      <input type="color" id="customColor" value="#d6f24b" title="Cor personalizada">
+    </div>
+  </div>
+
+  <button class="copy-link-main" id="copyLinkMain" style="margin-left:auto;">🔗 Copiar link p/ OBS</button>
+</div>
+
+<div class="hint-bar">
+  <b>OBS:</b> abra uma cena por vez. Adicione como <b>Browser Source</b> → marque "Local file" → ajuste resolução p/ <b>1920×1080</b> (Twitch) ou <b>1080×1920</b> (TikTok). Use <b>?scene=game&format=landscape&obs=1&color=d6f24b</b> na URL p/ travar uma cena.
+</div>
+
+<!-- ===================== EDITOR DA CENA REACT ===================== -->
+<div class="react-editor" id="reactEditor">
+  <span class="ed-label">Editar react</span>
+  <div class="seg" id="reactTypeSeg">
+    <button class="active" data-rtype="movie">🎬 Filme</button>
+    <button data-rtype="series">📺 Série</button>
+  </div>
+  <div class="field">
+    <small id="titleLabel">Título do filme</small>
+    <input type="text" id="reactTitle" placeholder="Digite o título..." value="Nome do filme">
+  </div>
+  <div class="field hide" id="seasonField">
+    <small>Temporada</small>
+    <input type="number" id="reactSeason" min="1" value="1">
+  </div>
+  <div class="field hide" id="episodeField">
+    <small>Episódio</small>
+    <input type="number" id="reactEpisode" min="1" value="1">
+  </div>
+  <div class="field">
+    <small>Nota (opcional)</small>
+    <input type="text" id="reactNote" placeholder="ex: parte 2, rewatch..." style="width:160px;">
+  </div>
+  <button class="copy-link" id="copyLink">🔗 Copiar link da cena</button>
+</div>
+
+<!-- ===================== PALCO ===================== -->
+<div class="stage-wrap">
+  <div class="stage landscape" id="stage"></div>
+</div>
+
+<script>
+/* =========================================================================
+   STATE
+========================================================================= */
+const state = { format: 'landscape', scene: 'game', color: '#d6f24b' };
+const stage = document.getElementById('stage');
+
+/* estado da cena de react (filme ou série) */
+const reactState = {
+  type: 'movie',          // 'movie' | 'series'
+  title: 'Nome do filme',
+  season: '1',
+  episode: '1',
+  note: ''
+};
+function reactPillText(){ return reactState.type==='series' ? 'Série' : 'Filme'; }
+function reactNoteHtml(){
+  if(!reactState.note) return '';
+  return ` <span style="color:var(--text-dim); margin:0 4px;">•</span> <span style="color:var(--text-dim)">${escapeHtml(reactState.note)}</span>`;
+}
+function reactTitleHtml(){
+  const t = escapeHtml(reactState.title || '—');
+  if (reactState.type==='series'){
+    const s = escapeHtml(reactState.season || '1');
+    const e = escapeHtml(reactState.episode || '1');
+    return `<b style="color:var(--accent)">${t}</b> <span style="color:var(--text-dim); margin:0 4px;">•</span> T${s} E${e}${reactNoteHtml()}`;
+  }
+  return `<b style="color:var(--accent)">${t}</b>${reactNoteHtml()}`;
+}
+function reactBarTag(){
+  if (reactState.type==='series') return `T${escapeHtml(reactState.season||'1')} · E${escapeHtml(reactState.episode||'1')}`;
+  return '▶ filme';
+}
+function reactFillLabel(){ return escapeHtml(reactState.title || 'Janela de vídeo'); }
+function escapeHtml(str){ const d=document.createElement('div'); d.textContent=String(str); return d.innerHTML; }
+
+/* aplica params da URL (modo OBS) */
+const params = new URLSearchParams(location.search);
+if (params.get('format')) state.format = params.get('format');
+if (params.get('scene')) state.scene = params.get('scene');
+if (params.get('color')) state.color = '#' + params.get('color').replace('#','');
+if (params.get('rtype')) reactState.type = params.get('rtype');
+if (params.get('rtitle')) reactState.title = params.get('rtitle');
+if (params.get('rseason')) reactState.season = params.get('rseason');
+if (params.get('repisode')) reactState.episode = params.get('repisode');
+if (params.get('rnote')) reactState.note = params.get('rnote');
+if (params.get('obs') === '1') document.body.classList.add('obs');
+
+/* =========================================================================
+   COR DE DESTAQUE
+========================================================================= */
+function hexToRgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255}, ${(n>>8)&255}, ${n&255}, ${a})`;
+}
+function applyColor(hex) {
+  state.color = hex;
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--accent-soft', hexToRgba(hex, 0.15));
+}
+
+/* =========================================================================
+   CHAT MOCK (compartilhado entre cenas)
+========================================================================= */
+const mockUsers = ['marina_o','pedrohq','cafe_amargo','ju.design','rafa_dev','lis_pod','thomas.b','ana_bea','gui_santos','dudu99'];
+const mockTexts = ['kkkk não acredito','salve galera','esse jogo é insano','primeira vez aqui, curtindo','manda mais disso','GG demais','reaja a esse aqui','tá voando hein','que clipe lindo','concordo total','rip kkk','vamoo','isso aí merece corte','boa boa','huehue'];
+const chatColors = ['#a78bfa','#fbbf24','#f472b6','#34d399','#60a5fa','#fb923c','#22d3ee','#f87171'];
+function userColor(name){let h=0;for(let i=0;i<name.length;i++)h=name.charCodeAt(i)+((h<<5)-h);return chatColors[Math.abs(h)%chatColors.length];}
+
+let chatTimers = [];
+function startChat(container, max=10){
+  function tick(){
+    const u = mockUsers[Math.random()*mockUsers.length|0];
+    const t = mockTexts[Math.random()*mockTexts.length|0];
+    const el = document.createElement('div');
+    el.className='cmsg';
+    el.style.setProperty('--cu', userColor(u));
+    el.innerHTML = `<span class="cmsg-user">${u}</span> <span class="cmsg-text">${t}</span>`;
+    container.prepend(el);
+    while(container.children.length>max) container.lastChild.remove();
+    chatTimers.push(setTimeout(tick, 1400 + Math.random()*2200));
+  }
+  tick();
+}
+function clearChat(){ chatTimers.forEach(clearTimeout); chatTimers=[]; }
+
+/* =========================================================================
+   RELÓGIO
+========================================================================= */
+function clockText(){ const d=new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+
+/* =========================================================================
+   TEMPLATES DE CENA — recebem o formato e devolvem HTML
+   Coordenadas pensadas em % pra escalar entre 16:9 e 9:16
+========================================================================= */
+const scenes = {
+  /* ---------- CENA DE JOGO ---------- */
+  game(fmt){
+    const land = fmt==='landscape';
+    return `
+      ${land ? `
+        <!-- gameplay ocupa quase tudo -->
+        <div class="win" style="top:3%; left:2.5%; width:70%; height:84%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">GAME<b>PLAY</b></span><span class="win-tag">1080p60</span></div>
+          <div class="win-body"><div class="game-fill"><div class="fill-icon">🎮</div><div class="fill-label">Captura do jogo</div><div class="fill-sub">game capture aqui</div></div><div class="shimmer"></div></div>
+        </div>
+        <!-- webcam -->
+        <div class="win accent-frame" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/10;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
+        </div>
+        <!-- chat -->
+        <div class="win" style="bottom:3%; right:2.5%; width:24%; height:54%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag" id="clk1">${clockText()}</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+        <!-- info -->
+        <div class="info-strip" style="bottom:3%; left:2.5%; width:70%; justify-content:flex-start;">
+          <span class="pill">Agora</span><span class="label">Jogando <span>•</span> <b style="color:var(--accent)">SEU JOGO AQUI</b></span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
+        </div>
+      ` : `
+        <!-- PORTRAIT: gameplay topo, cam meio, chat baixo -->
+        <div class="win" style="top:2%; left:3%; width:94%; height:42%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">GAME<b>PLAY</b></span><span class="win-tag">9:16</span></div>
+          <div class="win-body"><div class="game-fill"><div class="fill-icon">🎮</div><div class="fill-label">Captura do jogo</div></div><div class="shimmer"></div></div>
+        </div>
+        <div class="win accent-frame" style="top:45.5%; left:3%; width:48%; height:42%;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
+        </div>
+        <div class="win" style="top:45.5%; right:3%; width:43%; height:42%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+        <div class="info-strip" style="bottom:2.5%; left:3%; width:94%;">
+          <span class="pill">Live</span><span class="label"><b style="color:var(--accent)">SEU JOGO</b></span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
+        </div>
+      `}
+    `;
+  },
+
+  /* ---------- CENA DE REACT ---------- */
+  react(fmt){
+    const land = fmt==='landscape';
+    return `
+      ${land ? `
+        <div class="win accent-frame" style="top:3%; left:2.5%; width:70%; height:68%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">${reactBarTag()}</span></div>
+          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div><div class="fill-sub">browser / media source</div></div><div class="shimmer"></div></div>
+        </div>
+        <div class="win" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/11;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
+        </div>
+        <div class="win" style="top:42%; right:2.5%; width:24%; height:46%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+        <div class="info-strip" style="bottom:3%; left:2.5%; width:70%;">
+          <span class="pill">${reactPillText()}</span><span class="label">Reagindo a ${reactTitleHtml()}</span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
+        </div>
+      ` : `
+        <div class="win accent-frame" style="top:2%; left:3%; width:94%; height:36%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">▶</span></div>
+          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Janela de vídeo</div></div><div class="shimmer"></div></div>
+        </div>
+        <div class="win" style="top:39.5%; left:3%; width:94%; aspect-ratio:16/9;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>LIVE</div></div>
+        </div>
+        <div class="win" style="bottom:7%; left:3%; width:94%; height:22%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+        <div class="info-strip" style="bottom:2%; left:3%; width:94%;">
+          <span class="pill">${reactPillText()}</span><span class="label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${reactTitleHtml()}</span><span class="label" style="margin-left:auto; color:var(--text-dim); flex-shrink:0;">@seunick</span>
+        </div>
+      `}
+    `;
+  },
+
+  /* ---------- REACT LIVRE (qualquer coisa: vídeo, tela do PC, site) ---------- */
+  reactfree(fmt){
+    const land = fmt==='landscape';
+    return `
+      ${land ? `
+        <div class="win accent-frame" style="top:3%; left:2.5%; width:70%; height:84%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag" id="clk1">${clockText()}</span></div>
+          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Tela / vídeo / qualquer fonte</div><div class="fill-sub">display capture · browser · media</div></div><div class="shimmer"></div></div>
+        </div>
+        <div class="win" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/10;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
+        </div>
+        <div class="win" style="bottom:3%; right:2.5%; width:24%; height:54%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+      ` : `
+        <div class="win accent-frame" style="top:2%; left:3%; width:94%; height:42%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">${clockText()}</span></div>
+          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Tela / vídeo / qualquer fonte</div></div><div class="shimmer"></div></div>
+        </div>
+        <div class="win" style="top:45.5%; left:3%; width:48%; height:42%;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
+        </div>
+        <div class="win" style="top:45.5%; right:3%; width:43%; height:42%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+      `}
+    `;
+  },
+
+  /* ---------- JUST CHATTING ---------- */
+  chatting(fmt){
+    const land = fmt==='landscape';
+    return `
+      ${land ? `
+        <div class="win accent-frame" style="top:6%; left:3%; width:62%; height:80%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">CÂME<b>RA</b></span><span class="win-tag">AO VIVO</span></div>
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam principal</div><div class="fill-sub">video capture device</div></div><div class="shimmer"></div></div>
+        </div>
+        <div class="win" style="top:6%; right:3%; width:29%; height:80%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT <b>AO VIVO</b></span><span class="win-tag">${clockText()}</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+        <div class="info-strip" style="bottom:6%; left:3%; width:62%;">
+          <span class="pill">Online</span><span class="label">Just Chatting <span>•</span> <b style="color:var(--accent)">papo solto</b></span>
+        </div>
+      ` : `
+        <div class="win accent-frame" style="top:3%; left:3%; width:94%; height:54%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">CÂME<b>RA</b></span><span class="win-tag">LIVE</span></div>
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="shimmer"></div></div>
+        </div>
+        <div class="win" style="bottom:3%; left:3%; width:94%; height:36%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
+          <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
+        </div>
+      `}
+    `;
+  },
+
+  /* ---------- COMEÇANDO ---------- */
+  start(fmt){
+    return `
+      <div class="fs">
+        <div class="fs-bg-grid"></div><div class="fs-glow"></div>
+        <div class="fs-kicker">stream começando</div>
+        <div class="fs-title">COMEÇANDO<br><em>JÁ JÁ</em></div>
+        <div class="fs-dots"><i></i><i></i><i></i></div>
+        <div class="fs-sub">Preparando tudo por aqui — fica comigo, já voltamos no ar.</div>
+        <div class="clock" style="top:24px; right:24px;" id="clk2">${clockText()}</div>
+        <div class="ticker"><div><span>BEM-VINDO À LIVE</span><span>★</span><span>DEIXA O FOLLOW</span><span>★</span><span>ATIVE O SININHO</span><span>★</span><span>COMEÇANDO JÁ</span><span>★</span><span>BEM-VINDO À LIVE</span><span>★</span><span>DEIXA O FOLLOW</span><span>★</span><span>ATIVE O SININHO</span><span>★</span><span>COMEÇANDO JÁ</span><span>★</span></div></div>
+      </div>
+    `;
+  },
+
+  /* ---------- VOLTO JÁ ---------- */
+  brb(fmt){
+    return `
+      <div class="fs">
+        <div class="fs-bg-grid"></div><div class="fs-glow"></div>
+        <div class="fs-kicker">pausa rápida</div>
+        <div class="fs-title">VOLTO<br><em>JÁ</em></div>
+        <div class="fs-dots"><i></i><i></i><i></i></div>
+        <div class="fs-sub">Pausa rapidinha — não vai a lugar nenhum, já volto.</div>
+        <div class="clock" style="top:24px; right:24px;" id="clk2">${clockText()}</div>
+        <div class="ticker"><div><span>JÁ VOLTO</span><span>●</span><span>AGUARDA AÍ</span><span>●</span><span>PEGA UM CAFÉ</span><span>●</span><span>VOLTAMOS LOGO</span><span>●</span><span>JÁ VOLTO</span><span>●</span><span>AGUARDA AÍ</span><span>●</span><span>PEGA UM CAFÉ</span><span>●</span><span>VOLTAMOS LOGO</span><span>●</span></div></div>
+      </div>
+    `;
+  },
+
+  /* ---------- FIM ---------- */
+  end(fmt){
+    return `
+      <div class="fs">
+        <div class="fs-bg-grid"></div><div class="fs-glow"></div>
+        <div class="fs-kicker">fim da transmissão</div>
+        <div class="fs-title">VALEU POR<br><em>ASSISTIR</em></div>
+        <div class="fs-sub">Foi incrível ter você aqui. Me segue nas redes pra não perder a próxima.</div>
+        <div class="info-strip" style="position:relative; margin-top:8px; background:transparent; border:none;">
+          <span class="pill">@</span><span class="label">seunick</span>
+          <span class="label" style="color:var(--text-dim)">•</span>
+          <span class="label">todas as redes</span>
+        </div>
+        <div class="clock" style="top:24px; right:24px;">${clockText()}</div>
+        <div class="ticker"><div><span>OBRIGADO!</span><span>♥</span><span>ATÉ A PRÓXIMA</span><span>♥</span><span>ME SEGUE NAS REDES</span><span>♥</span><span>VALEU DEMAIS</span><span>♥</span><span>OBRIGADO!</span><span>♥</span><span>ATÉ A PRÓXIMA</span><span>♥</span><span>ME SEGUE NAS REDES</span><span>♥</span><span>VALEU DEMAIS</span><span>♥</span></div></div>
+      </div>
+    `;
+  }
+};
+
+/* =========================================================================
+   RENDER
+========================================================================= */
+function render(){
+  clearChat();
+  stage.className = 'stage ' + state.format;
+  stage.innerHTML = scenes[state.scene](state.format);
+  const chatBox = document.getElementById('chatBox');
+  if (chatBox) startChat(chatBox, state.format==='portrait' ? (state.scene==='react'?4:8) : 12);
+}
+
+/* =========================================================================
+   EVENTOS DO PAINEL
+========================================================================= */
+document.getElementById('formatSeg').addEventListener('click', e=>{
+  if(e.target.dataset.format){
+    document.querySelectorAll('#formatSeg button').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    state.format = e.target.dataset.format;
+    render();
+  }
+});
+document.getElementById('sceneTabs').addEventListener('click', e=>{
+  if(e.target.dataset.scene){
+    document.querySelectorAll('#sceneTabs button').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    state.scene = e.target.dataset.scene;
+    updateReactEditorVisibility();
+    render();
+  }
+});
+
+/* ----- EDITOR REACT ----- */
+function updateReactEditorVisibility(){
+  document.getElementById('reactEditor').classList.toggle('show', state.scene==='react');
+}
+function updateReactFields(){
+  const isSeries = reactState.type==='series';
+  document.getElementById('seasonField').classList.toggle('hide', !isSeries);
+  document.getElementById('episodeField').classList.toggle('hide', !isSeries);
+  document.getElementById('titleLabel').textContent = isSeries ? 'Título da série' : 'Título do filme';
+}
+document.getElementById('reactTypeSeg').addEventListener('click', e=>{
+  if(e.target.dataset.rtype){
+    document.querySelectorAll('#reactTypeSeg button').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    reactState.type = e.target.dataset.rtype;
+    updateReactFields();
+    if(state.scene==='react') render();
+  }
+});
+document.getElementById('reactTitle').addEventListener('input', e=>{ reactState.title = e.target.value; if(state.scene==='react') render(); });
+document.getElementById('reactSeason').addEventListener('input', e=>{ reactState.season = e.target.value; if(state.scene==='react') render(); });
+document.getElementById('reactEpisode').addEventListener('input', e=>{ reactState.episode = e.target.value; if(state.scene==='react') render(); });
+document.getElementById('reactNote').addEventListener('input', e=>{ reactState.note = e.target.value; if(state.scene==='react') render(); });
+
+/* ----- MONTAR E COPIAR LINK DA CENA P/ OBS ----- */
+function buildSceneURL(){
+  const base = location.href.split('?')[0];
+  const p = new URLSearchParams();
+  p.set('scene', state.scene);
+  p.set('format', state.format);
+  p.set('obs', '1');
+  p.set('color', state.color.replace('#',''));
+  if(state.scene==='react'){
+    p.set('rtype', reactState.type);
+    if(reactState.title) p.set('rtitle', reactState.title);
+    if(reactState.type==='series'){
+      p.set('rseason', reactState.season);
+      p.set('repisode', reactState.episode);
+    }
+    if(reactState.note) p.set('rnote', reactState.note);
+  }
+  return base + '?' + p.toString();
+}
+function copyToClipboard(text, btn){
+  const done = ()=>{ const old=btn.textContent; btn.textContent='✓ Copiado!'; btn.classList.add('ok'); setTimeout(()=>{btn.textContent=old; btn.classList.remove('ok');},1600); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done));
+  } else { fallbackCopy(text, done); }
+}
+function fallbackCopy(text, done){
+  const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); done(); }catch(e){ prompt('Copie o link manualmente:', text); }
+  document.body.removeChild(ta);
+}
+document.getElementById('copyLinkMain').addEventListener('click', e=>copyToClipboard(buildSceneURL(), e.target));
+document.getElementById('copyLink').addEventListener('click', e=>copyToClipboard(buildSceneURL(), e.target));
+document.getElementById('colorDots').addEventListener('click', e=>{
+  if(e.target.dataset.color){
+    document.querySelectorAll('#colorDots button').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    applyColor(e.target.dataset.color);
+    document.getElementById('customColor').value = e.target.dataset.color;
+  }
+});
+document.getElementById('customColor').addEventListener('input', e=>{
+  document.querySelectorAll('#colorDots button').forEach(b=>b.classList.remove('active'));
+  applyColor(e.target.value);
+});
+
+/* relógio ao vivo */
+setInterval(()=>{
+  document.querySelectorAll('#clk1,#clk2,.clock').forEach(el=>{ if(el) el.textContent = clockText(); });
+}, 10000);
+
+/* sincroniza painel com params da URL */
+function syncPanel(){
+  document.querySelectorAll('#formatSeg button').forEach(b=>b.classList.toggle('active', b.dataset.format===state.format));
+  document.querySelectorAll('#sceneTabs button').forEach(b=>b.classList.toggle('active', b.dataset.scene===state.scene));
+}
+
+/* INIT */
+applyColor(state.color);
+document.getElementById('customColor').value = state.color;
+/* sincroniza inputs do editor react com o estado (caso venha da URL) */
+document.getElementById('reactTitle').value = reactState.title;
+document.getElementById('reactSeason').value = reactState.season;
+document.getElementById('reactEpisode').value = reactState.episode;
+document.getElementById('reactNote').value = reactState.note;
+document.querySelectorAll('#reactTypeSeg button').forEach(b=>b.classList.toggle('active', b.dataset.rtype===reactState.type));
+updateReactFields();
+updateReactEditorVisibility();
+syncPanel();
+render();
+</script>
+</body>
+</html>
