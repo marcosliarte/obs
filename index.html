@@ -221,6 +221,106 @@
   .cmsg-user { font-size: 12px; font-weight: 700; color: var(--cu, var(--accent)); }
   .cmsg-text { font-size: 12px; color: var(--text); line-height: 1.4; }
 
+  /* ===================== SOCIAL BADGES (dentro do canto inferior da webcam) ===================== */
+  .social-badges {
+    position: absolute;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    z-index: 9;
+    animation: spIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+    padding: 8px;
+  }
+  .social-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 4px;
+    background: rgba(20, 20, 22, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  }
+  .social-badge .si {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .social-badge .si svg { width: 11px; height: 11px; fill: #fff; }
+  .social-badge.tiktok .si    { background: #000; }
+  .social-badge.instagram .si { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+  .social-badge.youtube .si   { background: #ff0000; }
+  .social-badge .handle { color: var(--text); }
+
+  /* ===================== SPOTIFY BALÃO ===================== */
+  .spotify-pill {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 8px 8px;
+    background: rgba(20, 20, 22, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    z-index: 10;
+    animation: spIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  /* sobe quando há info-strip embaixo */
+  .stage.has-infobar .spotify-pill { bottom: 70px; }
+  /* no portrait sobe pro topo */
+  .stage.portrait .spotify-pill { bottom: auto; top: 14px; }
+  .stage.portrait.has-infobar .spotify-pill { top: 14px; bottom: auto; }
+  @keyframes spIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+
+  .sp-cover {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #1db954, #117a36);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    animation: spSpin 6s linear infinite;
+  }
+  .sp-cover svg { width: 18px; height: 18px; fill: #fff; }
+  /* furinho central tipo vinil */
+  .sp-cover::after {
+    content:''; position:absolute; width:8px; height:8px; border-radius:50%;
+    background: rgba(20,20,22,0.95); top:50%; left:50%; transform: translate(-50%,-50%);
+  }
+  @keyframes spSpin { to { transform: rotate(360deg); } }
+
+  .sp-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .sp-kicker {
+    font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #1db954; font-weight: 700;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .sp-kicker i {
+    width: 5px; height: 5px; border-radius: 50%; background: #1db954;
+    animation: blink 1.5s ease-in-out infinite; display: inline-block;
+  }
+  .sp-title-row { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+  .sp-title {
+    font-size: 12px; font-weight: 700; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+  }
+  .sp-artist {
+    font-size: 11px; color: var(--text-dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+  }
+  .sp-artist::before { content: '· '; margin-right: 2px; }
+
   /* ===================== overlay info bar (nome / agora jogando) ===================== */
   .info-strip {
     position: absolute; display: flex; align-items: center; gap: 10px;
@@ -352,6 +452,14 @@
     </div>
   </div>
 
+  <div class="ctrl-group">
+    <span class="ctrl-label">Spotify</span>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+      <input type="checkbox" id="spotifyToggle" style="cursor:pointer;"> Mostrar balão
+    </label>
+    <input type="text" id="spotifyTestInput" placeholder='Teste: "Música - Artista"' style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:220px; outline:none;">
+  </div>
+
   <button class="copy-link-main" id="copyLinkMain" style="margin-left:auto;">🔗 Copiar link p/ OBS</button>
 </div>
 
@@ -383,6 +491,23 @@
     <input type="text" id="reactNote" placeholder="ex: parte 2, rewatch..." style="width:160px;">
   </div>
   <button class="copy-link" id="copyLink">🔗 Copiar link da cena</button>
+</div>
+
+<!-- ===================== EDITOR DE REDES SOCIAIS ===================== -->
+<div class="react-editor" id="socialEditor">
+  <span class="ed-label">Redes sociais</span>
+  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+    <input type="checkbox" id="socTiktokOn"> 🎵 TikTok
+  </label>
+  <div class="field"><small>@TikTok</small><input type="text" id="socTiktok" placeholder="meunick" style="width:140px;"></div>
+  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+    <input type="checkbox" id="socInstaOn"> 📸 Instagram
+  </label>
+  <div class="field"><small>@Instagram</small><input type="text" id="socInsta" placeholder="meunick" style="width:140px;"></div>
+  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+    <input type="checkbox" id="socYtOn"> ▶️ YouTube
+  </label>
+  <div class="field"><small>@YouTube</small><input type="text" id="socYt" placeholder="meucanal" style="width:140px;"></div>
 </div>
 
 <!-- ===================== PALCO ===================== -->
@@ -426,6 +551,132 @@ function reactBarTag(){
 function reactFillLabel(){ return escapeHtml(reactState.title || 'Janela de vídeo'); }
 function escapeHtml(str){ const d=document.createElement('div'); d.textContent=String(str); return d.innerHTML; }
 
+/* =========================================================================
+   REDES SOCIAIS — badges abaixo da webcam
+========================================================================= */
+const social = {
+  tiktok:    { on: false, handle: 'meunick' },
+  instagram: { on: false, handle: 'meunick' },
+  youtube:   { on: false, handle: 'meucanal' }
+};
+
+const socialIcons = {
+  tiktok:    '<svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V9.36a8.16 8.16 0 0 0 4.77 1.52V7.42c.01 0-.69-.04-1.84-.73z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58 0 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s0 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.85.07s-3.58 0-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92-.06-1.27-.07-1.64-.07-4.85s0-3.58.07-4.85C2.38 3.92 3.9 2.38 7.15 2.23 8.42 2.18 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07c-4.35.2-6.78 2.62-6.98 6.98C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.2 4.35 2.62 6.78 6.98 6.98C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c4.35-.2 6.78-2.62 6.98-6.98.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.2-4.35-2.63-6.78-6.98-6.98C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>',
+  youtube:   '<svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.12-2.12C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.53A3 3 0 0 0 .5 6.2C0 8.07 0 12 0 12s0 3.93.5 5.8a3 3 0 0 0 2.12 2.12c1.88.53 9.38.53 9.38.53s7.5 0 9.38-.53a3 3 0 0 0 2.12-2.12c.5-1.87.5-5.8.5-5.8s0-3.93-.5-5.8zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg>'
+};
+
+function activeSocials(){
+  const out = [];
+  for (const k of ['tiktok','instagram','youtube']){
+    if (social[k].on && social[k].handle.trim()) out.push({ key: k, handle: social[k].handle.trim() });
+  }
+  return out;
+}
+
+function renderSocialBadges(){
+  const stageEl = document.getElementById('stage');
+  if(!stageEl) return;
+  // remove badges anteriores
+  stageEl.querySelectorAll('.social-badges').forEach(el => el.remove());
+  const list = activeSocials();
+  if(!list.length) return;
+  // procura a janela da webcam (qualquer .win com .cam-fill dentro)
+  const camWindows = stageEl.querySelectorAll('.win');
+  let camWin = null;
+  for (const w of camWindows){
+    if (w.querySelector('.cam-fill')){ camWin = w; break; }
+  }
+  if(!camWin) return; // cena sem webcam (start/brb/end)
+
+  const camBody = camWin.querySelector('.win-body') || camWin;
+  const badges = document.createElement('div');
+  badges.className = 'social-badges';
+  badges.style.left = '0';
+  badges.style.right = '0';
+  badges.style.bottom = '0';
+  badges.style.justifyContent = 'center';
+
+  badges.innerHTML = list.map(({key, handle}) => `
+    <div class="social-badge ${key}">
+      <span class="si">${socialIcons[key]}</span>
+      <span class="handle">@${escapeHtml(handle)}</span>
+    </div>
+  `).join('');
+
+  camBody.appendChild(badges);
+}
+
+/* =========================================================================
+   SPOTIFY — modo simples: lê now-playing.txt da mesma pasta do HTML
+   O arquivo deve conter uma linha no formato:  Música - Artista
+   (qualquer programa tipo Snip pode gerar; veja COMO-USAR.md)
+========================================================================= */
+const SP = {
+  enabled: false,
+  current: null,        // { title, artist }
+  testMode: false,
+  pollTimer: null
+};
+
+function parseNowPlaying(text){
+  if(!text) return null;
+  const line = text.trim().split('\n')[0].trim();
+  if(!line) return null;
+  // formatos aceitos: "Música - Artista" ou "Artista - Música" (assume primeiro)
+  const idx = line.indexOf(' - ');
+  if(idx > 0){
+    return { title: line.slice(0, idx).trim(), artist: line.slice(idx + 3).trim() };
+  }
+  return { title: line, artist: '' };
+}
+
+async function spFetchFile(){
+  if(SP.testMode) return; // não sobrescreve quando está em modo teste
+  try {
+    const r = await fetch('now-playing.txt?t=' + Date.now(), { cache: 'no-store' });
+    if(!r.ok){ SP.current = null; renderSpotifyPill(); return; }
+    const text = await r.text();
+    SP.current = parseNowPlaying(text);
+    renderSpotifyPill();
+  } catch(e){
+    // arquivo não existe ainda — tudo bem, só não mostra
+    SP.current = null;
+    renderSpotifyPill();
+  }
+}
+
+function spStartPolling(){
+  if(SP.pollTimer) clearInterval(SP.pollTimer);
+  if(!SP.enabled) return;
+  spFetchFile();
+  SP.pollTimer = setInterval(spFetchFile, 4000);
+}
+
+function renderSpotifyPill(){
+  const stageEl = document.getElementById('stage');
+  if(!stageEl) return;
+  let pill = stageEl.querySelector('.spotify-pill');
+  if(!SP.enabled || !SP.current){
+    if(pill) pill.remove();
+    return;
+  }
+  if(!pill){
+    pill = document.createElement('div');
+    pill.className = 'spotify-pill';
+    stageEl.appendChild(pill);
+  }
+  pill.innerHTML = `
+    <div class="sp-cover"><svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.5 17.32a.75.75 0 0 1-1.03.25c-2.82-1.72-6.36-2.11-10.54-1.16a.75.75 0 1 1-.33-1.46c4.57-1.04 8.49-.59 11.65 1.34.36.21.47.69.25 1.03zm1.47-3.28a.94.94 0 0 1-1.29.31c-3.23-1.99-8.16-2.56-11.98-1.4a.94.94 0 1 1-.55-1.79c4.37-1.33 9.8-.69 13.51 1.59.44.27.58.85.31 1.29zm.13-3.41C15.32 8.78 8.78 8.6 5.18 9.7a1.12 1.12 0 1 1-.66-2.15c4.13-1.25 11.34-1.04 15.83 1.62a1.12 1.12 0 0 1-1.15 1.93z"/></svg></div>
+    <div class="sp-text">
+      <div class="sp-kicker"><i></i>TOCANDO AGORA</div>
+      <div class="sp-title-row">
+        <span class="sp-title">${escapeHtml(SP.current.title)}</span>
+        ${SP.current.artist ? `<span class="sp-artist">${escapeHtml(SP.current.artist)}</span>` : ''}
+      </div>
+    </div>`;
+}
+
 /* aplica params da URL (modo OBS) */
 const params = new URLSearchParams(location.search);
 if (params.get('format')) state.format = params.get('format');
@@ -436,6 +687,14 @@ if (params.get('rtitle')) reactState.title = params.get('rtitle');
 if (params.get('rseason')) reactState.season = params.get('rseason');
 if (params.get('repisode')) reactState.episode = params.get('repisode');
 if (params.get('rnote')) reactState.note = params.get('rnote');
+if (params.get('spotify') === '1') SP.enabled = true;
+/* redes sociais via URL */
+['tiktok','instagram','youtube'].forEach(k=>{
+  if (params.get('s_' + k)) {
+    social[k].on = true;
+    social[k].handle = params.get('s_' + k);
+  }
+});
 if (params.get('obs') === '1') document.body.classList.add('obs');
 
 /* =========================================================================
@@ -688,8 +947,12 @@ function render(){
   clearChat();
   stage.className = 'stage ' + state.format;
   stage.innerHTML = scenes[state.scene](state.format);
+  // detecta info-strip pra ajustar posição do Spotify
+  if (stage.querySelector('.info-strip')) stage.classList.add('has-infobar');
   const chatBox = document.getElementById('chatBox');
   if (chatBox) startChat(chatBox, state.format==='portrait' ? (state.scene==='react'?4:8) : 12);
+  renderSpotifyPill();
+  renderSocialBadges();
 }
 
 /* =========================================================================
@@ -716,6 +979,9 @@ document.getElementById('sceneTabs').addEventListener('click', e=>{
 /* ----- EDITOR REACT ----- */
 function updateReactEditorVisibility(){
   document.getElementById('reactEditor').classList.toggle('show', state.scene==='react');
+  // o editor de redes só aparece em cenas com webcam
+  const sceneHasCam = ['game','react','reactfree','chatting'].includes(state.scene);
+  document.getElementById('socialEditor').classList.toggle('show', sceneHasCam);
 }
 function updateReactFields(){
   const isSeries = reactState.type==='series';
@@ -754,6 +1020,10 @@ function buildSceneURL(){
     }
     if(reactState.note) p.set('rnote', reactState.note);
   }
+  if(SP.enabled) p.set('spotify', '1');
+  ['tiktok','instagram','youtube'].forEach(k=>{
+    if(social[k].on && social[k].handle.trim()) p.set('s_' + k, social[k].handle.trim());
+  });
   return base + '?' + p.toString();
 }
 function copyToClipboard(text, btn){
@@ -770,6 +1040,45 @@ function fallbackCopy(text, done){
 }
 document.getElementById('copyLinkMain').addEventListener('click', e=>copyToClipboard(buildSceneURL(), e.target));
 document.getElementById('copyLink').addEventListener('click', e=>copyToClipboard(buildSceneURL(), e.target));
+
+/* ----- SPOTIFY HANDLERS ----- */
+document.getElementById('spotifyToggle').addEventListener('change', e=>{
+  SP.enabled = e.target.checked;
+  if(SP.enabled){
+    // se já há texto de teste, usa ele; senão tenta buscar arquivo
+    const test = document.getElementById('spotifyTestInput').value.trim();
+    if(test){ SP.testMode = true; SP.current = parseNowPlaying(test); renderSpotifyPill(); }
+    else { SP.testMode = false; spStartPolling(); }
+  } else {
+    if(SP.pollTimer) clearInterval(SP.pollTimer);
+    SP.current = null;
+    renderSpotifyPill();
+  }
+});
+document.getElementById('spotifyTestInput').addEventListener('input', e=>{
+  const v = e.target.value.trim();
+  if(v){
+    SP.testMode = true;
+    if(SP.pollTimer) clearInterval(SP.pollTimer);
+    SP.current = parseNowPlaying(v);
+  } else {
+    SP.testMode = false;
+    SP.current = null;
+    if(SP.enabled) spStartPolling();
+  }
+  if(SP.enabled) renderSpotifyPill();
+});
+
+/* ----- SOCIAL HANDLERS ----- */
+function wireSocial(key, onId, inputId){
+  const onEl = document.getElementById(onId);
+  const inEl = document.getElementById(inputId);
+  onEl.addEventListener('change', e=>{ social[key].on = e.target.checked; renderSocialBadges(); });
+  inEl.addEventListener('input', e=>{ social[key].handle = e.target.value; if(social[key].on) renderSocialBadges(); });
+}
+wireSocial('tiktok', 'socTiktokOn', 'socTiktok');
+wireSocial('instagram', 'socInstaOn', 'socInsta');
+wireSocial('youtube', 'socYtOn', 'socYt');
 document.getElementById('colorDots').addEventListener('click', e=>{
   if(e.target.dataset.color){
     document.querySelectorAll('#colorDots button').forEach(b=>b.classList.remove('active'));
@@ -805,6 +1114,16 @@ document.getElementById('reactNote').value = reactState.note;
 document.querySelectorAll('#reactTypeSeg button').forEach(b=>b.classList.toggle('active', b.dataset.rtype===reactState.type));
 updateReactFields();
 updateReactEditorVisibility();
+/* sincroniza UI do Spotify */
+document.getElementById('spotifyToggle').checked = SP.enabled;
+if(SP.enabled) spStartPolling();
+/* sincroniza UI das redes sociais */
+document.getElementById('socTiktokOn').checked = social.tiktok.on;
+document.getElementById('socTiktok').value    = social.tiktok.handle;
+document.getElementById('socInstaOn').checked = social.instagram.on;
+document.getElementById('socInsta').value     = social.instagram.handle;
+document.getElementById('socYtOn').checked    = social.youtube.on;
+document.getElementById('socYt').value        = social.youtube.handle;
 syncPanel();
 render();
 </script>

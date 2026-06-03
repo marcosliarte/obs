@@ -19,15 +19,21 @@ Kit de overlays minimalistas para transmissões ao vivo, prontos para **Twitch (
 **Recursos:**
 - Seletor de cor de destaque ao vivo (6 presets + cor livre)
 - Editor rápido de filme/série na cena React (título, temporada, episódio, nota)
+- 📱 Redes sociais (TikTok, Instagram, YouTube) — ative só as que você usa, com @ editável
+- 🎵 Balão "Tocando agora" do Spotify (opcional, ativável por URL)
 - Botão "copiar link" que monta a URL pronta pro OBS
 - Animações suaves (moldura pulsante, brilho flutuante, ticker, chat com entrada animada)
 - Relógio ao vivo
 
 ---
 
-## 🚀 Como usar (2 opções)
+## 🚀 Como usar (3 opções)
 
-### Opção 1 — GitHub Pages (recomendado, URLs diretas)
+### Opção 1 — Vercel (recomendado se você já usa)
+
+Se você já conectou esse repo na Vercel, ela já gera a URL automaticamente algo como `https://obs-marcosliarte.vercel.app`. Use essa URL no OBS. **Vantagem da Vercel:** atualizações sobem em segundos sem precisar configurar nada.
+
+### Opção 2 — GitHub Pages
 
 1. No GitHub, vá em **Settings → Pages**.
 2. Em "Source", escolha a branch **main** e a pasta **/ (root)**. Salve.
@@ -35,12 +41,13 @@ Kit de overlays minimalistas para transmissões ao vivo, prontos para **Twitch (
    ```
    https://marcosliarte.github.io/obs/
    ```
-4. No OBS, em vez de arquivo local, use a **URL** da cena (veja exemplos abaixo).
 
-### Opção 2 — Arquivo local
+### Opção 3 — Arquivo local (necessário para usar Spotify)
 
-1. Baixe o `index.html` (botão **Code → Download ZIP**, ou clone o repo).
-2. No OBS: **Fonte → Navegador → Arquivo local** e selecione o arquivo.
+1. Baixe os arquivos (clone o repo ou Download ZIP).
+2. No OBS: **Fonte → Navegador → Arquivo local** e selecione o `index.html`.
+
+> 💡 Para o **balão do Spotify** funcionar, **precisa** ser via arquivo local — porque o overlay lê um `.txt` do seu PC. Veja COMO-USAR.md.
 
 ---
 
@@ -88,6 +95,10 @@ https://marcosliarte.github.io/obs/?scene=reactfree&format=portrait&obs=1
 | `rseason` | número | (React) temporada (só série) |
 | `repisode` | número | (React) episódio (só série) |
 | `rnote` | texto | (React) nota opcional (ex: "parte 2") |
+| `spotify` | `1` | Mostra balão "Tocando agora" do Spotify (requer Snip — veja COMO-USAR.md) |
+| `s_tiktok` | texto | @ do TikTok (sem `@`) — exibe badge abaixo da webcam |
+| `s_instagram` | texto | @ do Instagram |
+| `s_youtube` | texto | @ do YouTube |
 
 ---
 

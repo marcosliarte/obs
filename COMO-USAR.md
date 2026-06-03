@@ -171,4 +171,93 @@ No painel há 6 cores prontas + um seletor livre. A cor escolhida entra na URL c
 
 ---
 
+## 11. Mostrar música do Spotify
+
+O kit tem um balão pequeno e discreto no canto inferior esquerdo, que mostra "Tocando agora · Música · Artista" com um vinilzinho do Spotify girando.
+
+### Como funciona
+
+O overlay lê um arquivo chamado **`now-playing.txt`** na mesma pasta do `index.html`. O arquivo tem uma linha só, no formato:
+
+```
+Nome da Música - Nome do Artista
+```
+
+Qualquer programa que atualize esse arquivo funciona. O mais simples e gratuito é o **Snip**.
+
+### Passo a passo do Snip (Windows)
+
+1. **Baixe o Snip:** vá em [github.com/dlrudie/Snip/releases](https://github.com/dlrudie/Snip/releases) e baixe a versão mais recente (`Snip.exe` ou `Snip.zip`).
+2. **Extraia e abra** o `Snip.exe` (Windows pode pedir confirmação — é seguro, é código aberto).
+3. **Abra o Spotify** no PC e comece a tocar qualquer música.
+4. No Snip (ícone na bandeja do sistema, perto do relógio), clique com **botão direito** → você verá as opções.
+5. Marque **"Save track info to file"** (Salvar info da música em arquivo).
+6. Vá em **"Set output location"** (definir local) e selecione a **mesma pasta** onde está o `index.html` do overlay. O arquivo será criado como `Snip.txt` por padrão.
+7. **Renomeie esse arquivo pra `now-playing.txt`** (ou veja "Personalizar nome" abaixo).
+8. Em **"Set output format"**, troque o formato pra:
+   ```
+   $t - $a
+   ```
+   (onde `$t` = título, `$a` = artista)
+
+Pronto. Agora sempre que você trocar de música no Spotify, o Snip atualiza o arquivo, e o overlay atualiza o balão a cada 4 segundos automaticamente.
+
+### Como ativar no overlay
+
+Adicione `&spotify=1` na URL da cena:
+```
+?scene=game&format=landscape&obs=1&spotify=1
+```
+
+### ⚠️ Importante: Spotify só funciona localmente
+
+Vercel e GitHub Pages **não conseguem** ler arquivos do seu PC — eles são servidores online. Então pra usar o balão do Spotify, você **precisa**:
+
+- Baixar os arquivos do repo pra uma pasta local
+- No OBS, usar **"Arquivo local"** no Browser Source apontando pro `index.html` dessa pasta
+- O Snip salva o `now-playing.txt` na mesma pasta
+- Aí tudo funciona
+
+Se você usa Vercel/GitHub Pages, vai precisar manter **duas configurações**: a online (sem Spotify) e a local (com Spotify). Ou simplesmente usar a local sempre.
+
+### Testar o visual sem Spotify
+
+No painel de controle, marque **"Mostrar balão"** e digite no campo de teste algo como `Cruel Summer - Taylor Swift`. O balão aparece imediatamente, sem precisar do Snip.
+
+---
+
+## 12. Redes sociais (TikTok, Instagram, YouTube)
+
+Nas cenas com webcam (Jogo, React, React Livre, Just Chatting), você pode mostrar badges com seu @ de cada rede social, dentro do canto inferior da webcam.
+
+### Como editar
+
+Quando você seleciona uma cena com webcam no painel do topo, aparece uma seção **"Redes sociais"** com:
+
+- ☐ 🎵 TikTok — marque o checkbox pra ativar, digite seu @ ao lado
+- ☐ 📸 Instagram — idem
+- ☐ ▶️ YouTube — idem
+
+**Só as redes que você marcar aparecem.** Se você ainda não tem TikTok, por exemplo, deixe desmarcado e ele não aparece. Pode ativar uma, duas ou três.
+
+### Por URL (no OBS)
+
+Use os parâmetros `s_tiktok`, `s_instagram` e `s_youtube`:
+```
+?scene=game&format=landscape&obs=1&s_tiktok=meunick&s_instagram=meunick&s_youtube=meucanal
+```
+
+Se você só quer mostrar uma rede, passe só essa:
+```
+?scene=game&format=landscape&obs=1&s_instagram=meunick
+```
+
+### Onde aparecem
+
+Os badges aparecem **dentro da webcam**, no canto inferior, alinhados em linha horizontal. Cada um com seu ícone colorido (TikTok preto, Instagram gradient rosa/laranja, YouTube vermelho) e seu @.
+
+Isso vale só pras cenas com webcam — nas telas de Começando/Volto já/Fim não aparece, porque essas têm seus próprios layouts.
+
+---
+
 Qualquer coisa que queira mudar — proporções, cores, fontes, ou conectar o chat real — é só pedir.
