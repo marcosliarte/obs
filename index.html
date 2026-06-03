@@ -280,9 +280,12 @@
   }
   /* sobe quando há info-strip embaixo */
   .stage.has-infobar .spotify-pill { bottom: 70px; }
+  /* na cena IRL o pin de localização ocupa o canto inferior esquerdo — sobe o spotify */
+  .stage.has-irl-pin .spotify-pill { bottom: 90px; left: 24px; }
   /* no portrait sobe pro topo */
   .stage.portrait .spotify-pill { bottom: auto; top: 14px; }
   .stage.portrait.has-infobar .spotify-pill { top: 14px; bottom: auto; }
+  .stage.portrait.has-irl-pin .spotify-pill { top: 14px; bottom: auto; }
   @keyframes spIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
 
   .sp-cover {
@@ -320,6 +323,69 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;
   }
   .sp-artist::before { content: '· '; margin-right: 2px; }
+
+  /* ===================== IRL: PIN DE LOCALIZAÇÃO ===================== */
+  .irl-location {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px 10px 10px;
+    background: rgba(20, 20, 22, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+    z-index: 8;
+    animation: spIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .stage.portrait .irl-location { bottom: 110px; left: 14px; padding: 8px 14px 8px 8px; }
+  .irl-pin {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    animation: pinBounce 2.5s ease-in-out infinite;
+  }
+  .irl-pin svg { width: 20px; height: 20px; fill: #0a0a0a; }
+  @keyframes pinBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+  .irl-loc-text { display: flex; flex-direction: column; gap: 0; }
+  .irl-loc-kicker {
+    font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--accent); font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .irl-loc-name {
+    font-family: 'Archivo Expanded', sans-serif;
+    font-weight: 800; font-size: 18px; letter-spacing: 0.02em;
+    text-transform: uppercase; color: var(--text); line-height: 1;
+  }
+  .stage.portrait .irl-loc-name { font-size: 15px; }
+  .stage.portrait .irl-loc-kicker { font-size: 8px; }
+
+  /* fundo da cena IRL: só a "moldura" cobre toda a tela (transparente no OBS) */
+  .irl-scene {
+    position: absolute; inset: 0;
+  }
+  .irl-scene .cam-fill {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    background: radial-gradient(circle at 50% 40%, #1a1a1f, #0a0a0d);
+  }
+  /* borda sutil no canto da tela */
+  .irl-scene::after {
+    content: ''; position: absolute; inset: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    pointer-events: none;
+  }
 
   /* ===================== overlay info bar (nome / agora jogando) ===================== */
   .info-strip {
@@ -433,6 +499,7 @@
       <button data-scene="react">React</button>
       <button data-scene="reactfree">React Livre</button>
       <button data-scene="chatting">Just Chatting</button>
+      <button data-scene="irl">IRL</button>
       <button data-scene="start">Começando</button>
       <button data-scene="brb">Volto já</button>
       <button data-scene="end">Fim</button>
@@ -510,6 +577,19 @@
   <div class="field"><small>@YouTube</small><input type="text" id="socYt" placeholder="meucanal" style="width:140px;"></div>
 </div>
 
+<!-- ===================== EDITOR IRL (localização) ===================== -->
+<div class="react-editor" id="irlEditor">
+  <span class="ed-label">📍 IRL</span>
+  <div class="field">
+    <small>Texto pequeno (kicker)</small>
+    <input type="text" id="irlKicker" placeholder="EXPLORANDO" value="EXPLORANDO" style="width:160px;">
+  </div>
+  <div class="field">
+    <small>Localização</small>
+    <input type="text" id="irlLocation" placeholder="Praia de Copacabana" value="Praia de Copacabana" style="width:260px;">
+  </div>
+</div>
+
 <!-- ===================== PALCO ===================== -->
 <div class="stage-wrap">
   <div class="stage landscape" id="stage"></div>
@@ -554,6 +634,14 @@ function escapeHtml(str){ const d=document.createElement('div'); d.textContent=S
 /* =========================================================================
    REDES SOCIAIS — badges abaixo da webcam
 ========================================================================= */
+/* =========================================================================
+   IRL — estado da cena de live de rua
+========================================================================= */
+const irlState = {
+  location: 'Praia de Copacabana',
+  kicker: 'EXPLORANDO'
+};
+
 const social = {
   tiktok:    { on: false, handle: 'meunick' },
   instagram: { on: false, handle: 'meunick' },
@@ -599,6 +687,17 @@ function renderSocialBadges(){
     </div>
   `).join('');
   badges.style.justifyContent = 'center';
+
+  // IRL: cam ocupa a tela inteira; coloca badges no canto inferior direito
+  if (state.scene === 'irl') {
+    badges.style.right = state.format === 'portrait' ? '14px' : '24px';
+    badges.style.bottom = state.format === 'portrait' ? '110px' : '24px';
+    badges.style.left = 'auto';
+    badges.style.width = 'auto';
+    badges.style.justifyContent = 'flex-end';
+    stageEl.appendChild(badges);
+    return;
+  }
 
   // No Just Chatting a webcam é gigante: coloca DENTRO dela, no canto inferior
   // E em qualquer cena PORTRAIT também coloca dentro (evita sair da tela no OBS)
@@ -704,6 +803,8 @@ if (params.get('rtitle')) reactState.title = params.get('rtitle');
 if (params.get('rseason')) reactState.season = params.get('rseason');
 if (params.get('repisode')) reactState.episode = params.get('repisode');
 if (params.get('rnote')) reactState.note = params.get('rnote');
+if (params.get('irl_loc')) irlState.location = params.get('irl_loc');
+if (params.get('irl_kicker')) irlState.kicker = params.get('irl_kicker');
 if (params.get('spotify') === '1') SP.enabled = true;
 /* redes sociais via URL */
 ['tiktok','instagram','youtube'].forEach(k=>{
@@ -907,6 +1008,35 @@ const scenes = {
     `;
   },
 
+  /* ---------- IRL (live de rua: cam ocupa tudo) ---------- */
+  irl(fmt){
+    return `
+      <!-- moldura/placeholder da câmera ocupando toda a cena -->
+      <div class="irl-scene">
+        <div class="win" style="position:absolute; inset:0; border-radius:0; border:none; background:transparent;">
+          <div class="win-body" style="position:absolute; inset:0;">
+            <div class="cam-fill">
+              <div class="fill-icon" style="font-size:48px;">📷</div>
+              <div class="fill-label">Câmera ao vivo</div>
+              <div class="fill-sub">webcam, gopro ou celular</div>
+            </div>
+            <div class="live-badge" style="top:24px; left:24px;"><i></i>AO VIVO · IRL</div>
+          </div>
+        </div>
+      </div>
+      <!-- pin de localização -->
+      <div class="irl-location">
+        <div class="irl-pin">
+          <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+        </div>
+        <div class="irl-loc-text">
+          <span class="irl-loc-kicker">${irlState.kicker || 'EXPLORANDO'}</span>
+          <span class="irl-loc-name">${escapeHtml(irlState.location || 'Sua localização')}</span>
+        </div>
+      </div>
+    `;
+  },
+
   /* ---------- COMEÇANDO ---------- */
   start(fmt){
     return `
@@ -966,6 +1096,7 @@ function render(){
   stage.innerHTML = scenes[state.scene](state.format);
   // detecta info-strip pra ajustar posição do Spotify
   if (stage.querySelector('.info-strip')) stage.classList.add('has-infobar');
+  if (stage.querySelector('.irl-location')) stage.classList.add('has-irl-pin');
   const chatBox = document.getElementById('chatBox');
   if (chatBox) startChat(chatBox, state.format==='portrait' ? (state.scene==='react'?4:8) : 12);
   renderSpotifyPill();
@@ -996,9 +1127,11 @@ document.getElementById('sceneTabs').addEventListener('click', e=>{
 /* ----- EDITOR REACT ----- */
 function updateReactEditorVisibility(){
   document.getElementById('reactEditor').classList.toggle('show', state.scene==='react');
-  // o editor de redes só aparece em cenas com webcam
-  const sceneHasCam = ['game','react','reactfree','chatting'].includes(state.scene);
+  // o editor de redes aparece em cenas com webcam (inclui IRL)
+  const sceneHasCam = ['game','react','reactfree','chatting','irl'].includes(state.scene);
   document.getElementById('socialEditor').classList.toggle('show', sceneHasCam);
+  // editor IRL aparece só na cena IRL
+  document.getElementById('irlEditor').classList.toggle('show', state.scene==='irl');
 }
 function updateReactFields(){
   const isSeries = reactState.type==='series';
@@ -1036,6 +1169,10 @@ function buildSceneURL(){
       p.set('repisode', reactState.episode);
     }
     if(reactState.note) p.set('rnote', reactState.note);
+  }
+  if(state.scene==='irl'){
+    if(irlState.location) p.set('irl_loc', irlState.location);
+    if(irlState.kicker && irlState.kicker !== 'EXPLORANDO') p.set('irl_kicker', irlState.kicker);
   }
   if(SP.enabled) p.set('spotify', '1');
   ['tiktok','instagram','youtube'].forEach(k=>{
@@ -1096,6 +1233,16 @@ function wireSocial(key, onId, inputId){
 wireSocial('tiktok', 'socTiktokOn', 'socTiktok');
 wireSocial('instagram', 'socInstaOn', 'socInsta');
 wireSocial('youtube', 'socYtOn', 'socYt');
+
+/* ----- IRL HANDLERS ----- */
+document.getElementById('irlLocation').addEventListener('input', e=>{
+  irlState.location = e.target.value;
+  if(state.scene==='irl') render();
+});
+document.getElementById('irlKicker').addEventListener('input', e=>{
+  irlState.kicker = e.target.value.toUpperCase();
+  if(state.scene==='irl') render();
+});
 document.getElementById('colorDots').addEventListener('click', e=>{
   if(e.target.dataset.color){
     document.querySelectorAll('#colorDots button').forEach(b=>b.classList.remove('active'));
@@ -1141,6 +1288,9 @@ document.getElementById('socInstaOn').checked = social.instagram.on;
 document.getElementById('socInsta').value     = social.instagram.handle;
 document.getElementById('socYtOn').checked    = social.youtube.on;
 document.getElementById('socYt').value        = social.youtube.handle;
+/* sincroniza UI do IRL */
+document.getElementById('irlLocation').value = irlState.location;
+document.getElementById('irlKicker').value   = irlState.kicker;
 syncPanel();
 render();
 </script>
