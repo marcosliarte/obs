@@ -601,7 +601,8 @@ function renderSocialBadges(){
   badges.style.justifyContent = 'center';
 
   // No Just Chatting a webcam é gigante: coloca DENTRO dela, no canto inferior
-  if (state.scene === 'chatting') {
+  // E em qualquer cena PORTRAIT também coloca dentro (evita sair da tela no OBS)
+  if (state.scene === 'chatting' || state.format === 'portrait') {
     const camBody = camWin.querySelector('.win-body') || camWin;
     badges.style.left = '0';
     badges.style.right = '0';
