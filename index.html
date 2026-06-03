@@ -688,13 +688,24 @@ function renderSocialBadges(){
   `).join('');
   badges.style.justifyContent = 'center';
 
-  // IRL: cam ocupa a tela inteira; coloca badges no canto inferior direito
+  // IRL: cam ocupa a tela inteira
   if (state.scene === 'irl') {
-    badges.style.right = state.format === 'portrait' ? '14px' : '24px';
-    badges.style.bottom = state.format === 'portrait' ? '110px' : '24px';
-    badges.style.left = 'auto';
-    badges.style.width = 'auto';
-    badges.style.justifyContent = 'flex-end';
+    if (state.format === 'portrait') {
+      // portrait: badges no TOPO direito (pin fica embaixo esquerdo, sem colisão)
+      badges.style.top = '14px';
+      badges.style.right = '14px';
+      badges.style.left = 'auto';
+      badges.style.bottom = 'auto';
+      badges.style.width = 'auto';
+      badges.style.justifyContent = 'flex-end';
+    } else {
+      // landscape: continua no canto inferior direito
+      badges.style.right = '24px';
+      badges.style.bottom = '24px';
+      badges.style.left = 'auto';
+      badges.style.width = 'auto';
+      badges.style.justifyContent = 'flex-end';
+    }
     stageEl.appendChild(badges);
     return;
   }
@@ -791,6 +802,45 @@ function renderSpotifyPill(){
         ${SP.current.artist ? `<span class="sp-artist">${escapeHtml(SP.current.artist)}</span>` : ''}
       </div>
     </div>`;
+
+  // PORTRAIT: posiciona Spotify num lugar seguro
+  if (state.format === 'portrait') {
+    pill.style.top = '';
+    pill.style.bottom = '';
+    pill.style.left = '';
+    pill.style.right = '';
+    if (state.scene === 'irl') {
+      // IRL: cam ocupa tudo; põe abaixo do "AO VIVO" no topo esquerdo
+      pill.style.top = '60px';
+      pill.style.left = '14px';
+    } else {
+      // Demais portrait: coloca DENTRO da webcam, no canto superior
+      // (igual os badges sociais ficam no canto inferior da cam)
+      const camWindows = stageEl.querySelectorAll('.win');
+      let camWin = null;
+      for (const w of camWindows){
+        if (w.querySelector('.cam-fill')){ camWin = w; break; }
+      }
+      if (camWin) {
+        const camBody = camWin.querySelector('.win-body') || camWin;
+        // muda o parent pra dentro da cam
+        if (pill.parentNode !== camBody) {
+          pill.remove();
+          camBody.appendChild(pill);
+        }
+        pill.style.top = '8px';
+        pill.style.left = '8px';
+        pill.style.right = '8px';
+        pill.style.maxWidth = 'none';
+      }
+    }
+  } else {
+    // garante que volte pro stage quando voltar pra landscape
+    if (pill.parentNode !== stageEl) {
+      pill.remove();
+      stageEl.appendChild(pill);
+    }
+  }
 }
 
 /* aplica params da URL (modo OBS) */
