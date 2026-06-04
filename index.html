@@ -231,6 +231,34 @@
   .fill-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
   .fill-sub { font-size: 10px; color: var(--text-dim); opacity: 0.6; font-family: 'Space Mono', monospace; }
 
+  /* ============================================================
+     MODO OBS: tudo transparente pra sua webcam/jogo aparecer
+     ============================================================
+     Quando o overlay roda no OBS (?obs=1), os fundos dos
+     placeholders (webcam, jogo, vídeo) ficam transparentes —
+     assim você bota a fonte real ATRÁS no OBS e ela passa pelos
+     "buracos" da moldura. O quadrado preto deixa de cobrir tudo.
+  */
+  body.obs .cam-fill,
+  body.obs .video-fill,
+  body.obs .game-fill { background: transparent !important; }
+  body.obs .fill-icon,
+  body.obs .fill-label,
+  body.obs .fill-sub { display: none !important; }
+  body.obs .win,
+  body.obs .win-body { background: transparent !important; }
+  body.obs { background: transparent !important; }
+  html.obs { background: transparent !important; }
+  body.obs .chat-stream::before { display: none !important; }
+  /* opção: esconder badge "AO VIVO/LIVE" via ?hide_live=1 */
+  body.obs.hide-live .live-badge { display: none !important; }
+  /* opção: deixar TUDO retangular (sem cantos redondos da facecam) via ?square=1 */
+  body.obs.square .win,
+  body.obs.square .win-body,
+  body.obs.square .win.facecam,
+  body.obs.square .win.facecam .win-body { border-radius: 0 !important; }
+  body.obs.square .win.facecam.accent-frame::after { border-radius: 0 !important; }
+
   /* ===================== CHAT dentro de janela ===================== */
   .chat-stream {
     position: absolute; inset: 0; padding: 10px;
@@ -564,11 +592,26 @@
     <input type="text" id="spotifyTestInput" placeholder='Teste: "Música - Artista"' style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:220px; outline:none;">
   </div>
 
+  <div class="ctrl-group">
+    <span class="ctrl-label">Twitch</span>
+    <input type="text" id="twitchChannel" placeholder="nome do seu canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:200px; outline:none;">
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Estilo</span>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+      <input type="checkbox" id="hideLiveToggle" style="cursor:pointer;"> Esconder "AO VIVO"
+    </label>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+      <input type="checkbox" id="squareToggle" style="cursor:pointer;"> Tudo retangular
+    </label>
+  </div>
+
   <button class="copy-link-main" id="copyLinkMain" style="margin-left:auto;">🔗 Copiar link p/ OBS</button>
 </div>
 
 <div class="hint-bar">
-  <b>OBS:</b> abra uma cena por vez. Adicione como <b>Browser Source</b> → marque "Local file" → ajuste resolução p/ <b>1920×1080</b> (Twitch) ou <b>1080×1920</b> (TikTok). Use <b>?scene=game&format=landscape&obs=1&color=d6f24b</b> na URL p/ travar uma cena.
+  <b>OBS:</b> abra uma cena por vez. Adicione como <b>Browser Source</b> → marque "Local file" para arquivo no PC, ou cole a URL da Vercel. Use <b>1920×1080</b> (Twitch) ou <b>1080×1920</b> (TikTok). Coloque sua webcam/jogo <b>ABAIXO</b> do overlay na lista de fontes.
 </div>
 
 <!-- ===================== EDITOR DA CENA REACT ===================== -->
@@ -949,7 +992,13 @@ if (params.get('spotify') === '1') SP.enabled = true;
     social[k].handle = params.get('s_' + k);
   }
 });
-if (params.get('obs') === '1') document.body.classList.add('obs');
+if (params.get('obs') === '1') {
+  document.body.classList.add('obs');
+  document.documentElement.classList.add('obs');
+}
+if (params.get('hide_live') === '1') document.body.classList.add('hide-live');
+if (params.get('square') === '1') document.body.classList.add('square');
+if (params.get('twitch')) TWITCH.channel = params.get('twitch').toLowerCase();
 
 /* =========================================================================
    COR DE DESTAQUE
@@ -965,29 +1014,100 @@ function applyColor(hex) {
 }
 
 /* =========================================================================
-   CHAT MOCK (compartilhado entre cenas)
+   CHAT (Twitch real via tmi.js, com fallback pro mock pra preview)
 ========================================================================= */
+const TWITCH = {
+  channel: null,         // nome do canal (sem @, ex: 'meucanal')
+  client: null,          // instância tmi.Client
+  containers: new Set(), // contêineres ativos pra receber mensagens
+  maxMsgs: 12,
+  scriptPromise: null
+};
+
 const mockUsers = ['marina_o','pedrohq','cafe_amargo','ju.design','rafa_dev','lis_pod','thomas.b','ana_bea','gui_santos','dudu99'];
 const mockTexts = ['kkkk não acredito','salve galera','esse jogo é insano','primeira vez aqui, curtindo','manda mais disso','GG demais','reaja a esse aqui','tá voando hein','que clipe lindo','concordo total','rip kkk','vamoo','isso aí merece corte','boa boa','huehue'];
 const chatColors = ['#a78bfa','#fbbf24','#f472b6','#34d399','#60a5fa','#fb923c','#22d3ee','#f87171'];
 function userColor(name){let h=0;for(let i=0;i<name.length;i++)h=name.charCodeAt(i)+((h<<5)-h);return chatColors[Math.abs(h)%chatColors.length];}
 
+/* Renderiza uma mensagem (vinda da Twitch ou do mock) no contêiner */
+function renderChatMessage(container, user, text, max){
+  const safeUser = String(user).slice(0, 32);
+  const safeText = escapeHtml(String(text).slice(0, 300));
+  const el = document.createElement('div');
+  el.className = 'cmsg';
+  el.style.setProperty('--cu', userColor(safeUser));
+  el.innerHTML = `<span class="cmsg-user">${escapeHtml(safeUser)}</span> <span class="cmsg-text">${safeText}</span>`;
+  container.prepend(el);
+  while(container.children.length > max) container.lastChild.remove();
+}
+
+/* Carrega tmi.js do CDN só uma vez */
+function loadTmi(){
+  if (TWITCH.scriptPromise) return TWITCH.scriptPromise;
+  TWITCH.scriptPromise = new Promise((resolve, reject) => {
+    if (window.tmi) return resolve(window.tmi);
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js';
+    s.onload = () => resolve(window.tmi);
+    s.onerror = () => reject(new Error('falha ao carregar tmi.js'));
+    document.head.appendChild(s);
+  });
+  return TWITCH.scriptPromise;
+}
+
+/* Conecta ao chat da Twitch (anônimo, só leitura) */
+async function connectTwitchChat(channelName){
+  if (!channelName) return false;
+  try {
+    await loadTmi();
+    if (TWITCH.client) { try { TWITCH.client.disconnect(); } catch(e){} TWITCH.client = null; }
+    const client = new window.tmi.Client({
+      channels: [channelName],
+      connection: { reconnect: true, secure: true },
+      options: { skipUpdatingEmotesets: true }
+    });
+    client.on('message', (channel, tags, message, self) => {
+      const user = tags['display-name'] || tags.username || 'usuário';
+      TWITCH.containers.forEach(container => {
+        if (document.body.contains(container)) {
+          renderChatMessage(container, user, message, TWITCH.maxMsgs);
+        } else {
+          TWITCH.containers.delete(container);
+        }
+      });
+    });
+    await client.connect();
+    TWITCH.client = client;
+    return true;
+  } catch(e){
+    console.warn('[Twitch chat] falhou, usando mock:', e);
+    return false;
+  }
+}
+
 let chatTimers = [];
 function startChat(container, max=10){
+  TWITCH.maxMsgs = max;
+  if (TWITCH.channel){
+    // modo real: registra o container pra receber mensagens da Twitch
+    TWITCH.containers.add(container);
+    // conecta se ainda não conectado
+    if (!TWITCH.client) connectTwitchChat(TWITCH.channel);
+    return;
+  }
+  // modo mock: pra preview no painel ou se não configurou canal
   function tick(){
     const u = mockUsers[Math.random()*mockUsers.length|0];
     const t = mockTexts[Math.random()*mockTexts.length|0];
-    const el = document.createElement('div');
-    el.className='cmsg';
-    el.style.setProperty('--cu', userColor(u));
-    el.innerHTML = `<span class="cmsg-user">${u}</span> <span class="cmsg-text">${t}</span>`;
-    container.prepend(el);
-    while(container.children.length>max) container.lastChild.remove();
+    renderChatMessage(container, u, t, max);
     chatTimers.push(setTimeout(tick, 1400 + Math.random()*2200));
   }
   tick();
 }
-function clearChat(){ chatTimers.forEach(clearTimeout); chatTimers=[]; }
+function clearChat(){
+  chatTimers.forEach(clearTimeout); chatTimers=[];
+  TWITCH.containers.clear();
+}
 
 /* =========================================================================
    RELÓGIO
@@ -1319,6 +1439,9 @@ function buildSceneURL(){
     if(irlState.kicker && irlState.kicker !== 'EXPLORANDO') p.set('irl_kicker', irlState.kicker);
   }
   if(SP.enabled) p.set('spotify', '1');
+  if(TWITCH.channel) p.set('twitch', TWITCH.channel);
+  if(document.body.classList.contains('hide-live')) p.set('hide_live', '1');
+  if(document.body.classList.contains('square')) p.set('square', '1');
   ['tiktok','instagram','youtube'].forEach(k=>{
     if(social[k].on && social[k].handle.trim()) p.set('s_' + k, social[k].handle.trim());
   });
@@ -1378,6 +1501,24 @@ wireSocial('tiktok', 'socTiktokOn', 'socTiktok');
 wireSocial('instagram', 'socInstaOn', 'socInsta');
 wireSocial('youtube', 'socYtOn', 'socYt');
 
+/* ----- TWITCH CHAT HANDLER ----- */
+document.getElementById('twitchChannel').addEventListener('change', e=>{
+  const name = e.target.value.trim().toLowerCase().replace(/^@/, '');
+  TWITCH.channel = name || null;
+  // se desconecta o cliente atual e re-renderiza pra reconectar
+  if (TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} TWITCH.client = null; }
+  TWITCH.containers.clear();
+  render();
+});
+
+/* ----- ESTILO HANDLERS ----- */
+document.getElementById('hideLiveToggle').addEventListener('change', e=>{
+  document.body.classList.toggle('hide-live', e.target.checked);
+});
+document.getElementById('squareToggle').addEventListener('change', e=>{
+  document.body.classList.toggle('square', e.target.checked);
+});
+
 /* ----- IRL HANDLERS ----- */
 document.getElementById('irlLocation').addEventListener('input', e=>{
   irlState.location = e.target.value;
@@ -1435,6 +1576,10 @@ document.getElementById('socYt').value        = social.youtube.handle;
 /* sincroniza UI do IRL */
 document.getElementById('irlLocation').value = irlState.location;
 document.getElementById('irlKicker').value   = irlState.kicker;
+/* sync Twitch e estilo */
+document.getElementById('twitchChannel').value = TWITCH.channel || '';
+document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
+document.getElementById('squareToggle').checked = document.body.classList.contains('square');
 syncPanel();
 render();
 </script>
