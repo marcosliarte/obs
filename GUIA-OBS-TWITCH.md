@@ -1,193 +1,236 @@
-# 🎬 Guia: Configurar overlays no OBS (Twitch)
+# 🎬 Guia OBS — Configurar overlays na Twitch
 
-> **Substitua `SEU-LINK.vercel.app` pela URL real da sua Vercel em todos os links abaixo.**
+> Sua URL: **https://obs-bice.vercel.app/**
+> Substitua **`SEUCANAL`** pelo nome do seu canal na Twitch (sem @, tudo minúsculo).
 
 ---
 
-## 📋 Antes de começar
+## ⚠️ PASSO ZERO: confirmar que a versão nova está no ar
 
-Atualize o `index.html` no GitHub (a Vercel atualiza sozinha em ~30s):
+Antes de tudo, você precisa subir o `index.html` novo pro GitHub:
 
 ```powershell
 cd C:\Users\Marcos\Downloads\files
 git add -A
-git commit -m "fix: transparencia OBS + opcoes + chat real twitch"
+git commit -m "fix: transparencia OBS + chat twitch + opcoes"
 git push
 ```
 
+Aguarde uns 30 segundos pra Vercel atualizar. Pra confirmar que deu certo, abra essa URL no navegador:
+
+**https://obs-bice.vercel.app/**
+
+No painel de cima, você deve ver **três coisas novas**:
+- Um campo "Twitch" pra digitar o nome do canal
+- Checkbox "Esconder AO VIVO"
+- Checkbox "Tudo retangular"
+
+Se essas três coisas aparecerem, está atualizado e pode seguir. Se não, espere mais 1 minuto e dê F5.
+
 ---
 
-## 🎯 O que mudou nessa versão
+## 🎯 O essencial em 30 segundos
 
-Quatro coisas importantes que vão resolver tudo que você reportou:
+A regra de ouro do OBS pra esse kit é:
 
-1. **Fundos transparentes no OBS** — agora os "quadrados pretos" onde aparecia o ícone 📷 da webcam ficam transparentes. Você bota a webcam atrás e ela aparece no buraco.
-2. **Opção pra esconder "AO VIVO"** — `?hide_live=1` na URL, ou checkbox no painel
-3. **Opção pra deixar tudo retangular** — `?square=1` na URL, ou checkbox no painel (tira as bordas redondas da facecam)
-4. **Chat REAL da Twitch** — `?twitch=seunick` na URL, ou campo no painel. Conecta de forma anônima (só leitura), não precisa de login/token.
+```
+🥇 Overlay (Browser Source)  ← TOPO da lista (na frente)
+🥈 Webcam (Video Capture)
+🥉 Jogo / Tela / Vídeo       ← BASE da lista (atrás)
+```
+
+Sua webcam e seu jogo precisam estar **abaixo** do overlay na lista de fontes do OBS. O overlay funciona como uma "moldura transparente" — os "buracos" da moldura mostram o que está atrás.
 
 ---
 
-## 🚀 Passo a passo: adicionar overlay no OBS
+## 🚀 Configurar UMA cena (passo a passo)
 
-Pra cada cena (Jogo, React, Just Chatting, etc), você faz uma vez:
+Vou usar a cena de Jogo como exemplo. Pras outras é igual, só muda a URL.
 
-### 1. Crie uma cena nova no OBS
+### 1. Criar a cena
 
-- Em **Cenas**, clique no **+** e dê o nome (ex: "Live Jogo")
+- No OBS, painel **Cenas** (canto inferior esquerdo)
+- Clique em **+**
+- Nome: "Live - Jogo"
 
-### 2. Adicione o overlay (Browser Source)
+### 2. Adicionar o overlay
 
-- Em **Fontes**, clique no **+** → **Navegador** (Browser Source)
+- Painel **Fontes** → **+** → **Navegador** (ou "Browser")
 - Nome: "Overlay"
-- **URL:** cole o link da cena específica (veja abaixo)
-- **Largura:** 1920 (Twitch) ou 1080 (TikTok)
-- **Altura:** 1080 (Twitch) ou 1920 (TikTok)
-- Deixe marcado: "Atualizar navegador quando a cena ficar ativa"
+- **URL:** cole isso (troque `SEUCANAL`):
+  ```
+  https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
+  ```
+- **Largura:** 1920
+- **Altura:** 1080
+- Marque ✅ "Atualizar navegador quando a cena ficar ativa"
 - OK
 
-### 3. Adicione sua webcam
+### 3. Adicionar sua webcam
 
 - **Fontes** → **+** → **Dispositivo de captura de vídeo**
-- Escolha sua webcam, OK
-- **IMPORTANTE:** arraste essa fonte pra **ABAIXO** do "Overlay" na lista. A regra é: o overlay tem que estar no TOPO da lista (frente), a webcam embaixo (atrás).
+- Nome: "Webcam"
+- Selecione sua webcam, OK
+- **ARRASTE essa fonte pra ABAIXO do "Overlay"** na lista (muito importante!)
 
-### 4. Adicione o jogo / tela / vídeo
+### 4. Adicionar o jogo
 
-- **Fontes** → **+** → **Captura de jogo** (pra jogos) ou **Captura de tela** (pra qualquer coisa)
-- Configure e arraste pra abaixo do overlay (mesmo princípio da webcam)
+- **Fontes** → **+** → **Captura de jogo** (pra jogos) OU **Captura de tela** (qualquer coisa)
+- Configure conforme o jogo
+- Arraste pra **abaixo** do Overlay e da Webcam
 
-### 5. Posicione e redimensione
+### 5. Encaixar webcam e jogo no lugar certo
 
-Selecione cada fonte (webcam, jogo) e use as **alças vermelhas** pra encaixar no lugar certo:
+Selecione a webcam (ou jogo) e use as alças vermelhas pra redimensionar:
 
-- **Arrastar canto** = redimensionar
-- **Segurar Shift + arrastar canto** = mantém proporção
-- **Segurar Alt + arrastar borda** = recorta (crop)
+- **Arrastar canto** → redimensiona livre
+- **Shift + arrastar canto** → mantém proporção (recomendado)
+- **Alt + arrastar borda** → recorta (corta excesso sem distorcer)
 
-A meta é fazer sua webcam preencher exatamente o espaço onde o overlay desenha o quadradinho da webcam. Olhe pelo retângulo do overlay e ajuste.
+Você vai ver o overlay desenhando o quadradinho onde a webcam deve ir. Encaixa ela ali.
+
+**Posições aproximadas pra Twitch (1920×1080):**
+
+| Cena | Webcam | Jogo/Vídeo |
+|---|---|---|
+| Jogo | Direita topo, ~370×210px | Esquerda, ~1010×680px |
+| React | Direita topo, ~370×220px | Esquerda, ~1010×580px |
+| React Livre | Direita topo, ~370×220px | Esquerda, ~1010×680px |
+| Just Chatting | Esquerda, ~900×700px | (não tem) |
+| IRL | Tela toda | (não tem) |
+
+Não precisa ser exato, é só pra você ter ideia. Use o quadradinho do overlay como referência.
 
 ---
 
-## 🔗 Links prontos pra cada cena (Twitch 1920×1080)
+## 🔗 Links prontos pra cada cena
 
-Cole no campo URL da Browser Source no OBS. **Troque `meucanal` pelo nome do seu canal Twitch** (sem o @).
+Copie e cole no campo URL da Browser Source. **Substitua `SEUCANAL` pelo seu nick da Twitch:**
 
 ### Cena de Jogo
 ```
-https://SEU-LINK.vercel.app/?scene=game&format=landscape&obs=1&twitch=meucanal&hide_live=1
+https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
 ```
 
-### Cena de React (filme/série)
+### Cena de React (Filme)
 ```
-https://SEU-LINK.vercel.app/?scene=react&format=landscape&obs=1&twitch=meucanal&rtype=movie&rtitle=Interestelar&hide_live=1
-```
-
-Pra série, troque `rtype=movie` por `rtype=series` e adicione `&rseason=2&repisode=5`:
-```
-https://SEU-LINK.vercel.app/?scene=react&format=landscape&obs=1&twitch=meucanal&rtype=series&rtitle=Breaking%20Bad&rseason=3&repisode=7&hide_live=1
+https://obs-bice.vercel.app/?scene=react&format=landscape&obs=1&twitch=SEUCANAL&rtype=movie&rtitle=Interestelar&hide_live=1
 ```
 
-### Cena de React Livre (qualquer vídeo)
+### Cena de React (Série) — exemplo Breaking Bad T3 E7
 ```
-https://SEU-LINK.vercel.app/?scene=reactfree&format=landscape&obs=1&twitch=meucanal&hide_live=1
+https://obs-bice.vercel.app/?scene=react&format=landscape&obs=1&twitch=SEUCANAL&rtype=series&rtitle=Breaking%20Bad&rseason=3&repisode=7&hide_live=1
+```
+
+### Cena de React Livre (qualquer vídeo, sem editor)
+```
+https://obs-bice.vercel.app/?scene=reactfree&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
 ```
 
 ### Just Chatting
 ```
-https://SEU-LINK.vercel.app/?scene=chatting&format=landscape&obs=1&twitch=meucanal&hide_live=1
+https://obs-bice.vercel.app/?scene=chatting&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
 ```
 
-### Começando (tela de "começando já")
+### Começando (tela cheia, não precisa de webcam)
 ```
-https://SEU-LINK.vercel.app/?scene=start&format=landscape&obs=1
-```
-> Essa cena é uma tela cheia, não precisa de webcam atrás.
-
-### Volto Já
-```
-https://SEU-LINK.vercel.app/?scene=brb&format=landscape&obs=1
+https://obs-bice.vercel.app/?scene=start&format=landscape&obs=1
 ```
 
-### Fim (tela de "obrigado por assistir")
+### Volto Já (tela cheia, não precisa de webcam)
 ```
-https://SEU-LINK.vercel.app/?scene=end&format=landscape&obs=1
-```
-
-### IRL (live de rua, câmera ocupa tudo)
-```
-https://SEU-LINK.vercel.app/?scene=irl&format=landscape&obs=1&twitch=meucanal&irl_loc=Praia%20de%20Copacabana&hide_live=1
+https://obs-bice.vercel.app/?scene=brb&format=landscape&obs=1
 ```
 
-> Substitua `Praia%20de%20Copacabana` pela sua localização. Use `%20` no lugar de espaços (ou o gerador de link do painel cuida disso pra você).
+### Fim (tela cheia, não precisa de webcam)
+```
+https://obs-bice.vercel.app/?scene=end&format=landscape&obs=1
+```
+
+### IRL (live de rua — câmera ocupa tudo)
+```
+https://obs-bice.vercel.app/?scene=irl&format=landscape&obs=1&twitch=SEUCANAL&irl_loc=Praia%20de%20Copacabana
+```
+
+> Aqui eu deixei o "AO VIVO" porque ele é parte do design da IRL. Se quiser tirar, adicione `&hide_live=1`.
+> Pra trocar a localização: use `%20` no lugar de espaços (ex: `Centro%20de%20S%C3%A3o%20Paulo`).
 
 ---
 
-## ➕ Parâmetros extras
+## 📱 Versões TikTok (1080×1920 portrait)
 
-Adicione no final da URL com `&`:
+Mesma lógica, só troca `format=landscape` por `format=portrait` e usa resolução 1080×1920 no Browser Source. Exemplo:
 
-| Parâmetro | Valor | O que faz |
+```
+https://obs-bice.vercel.app/?scene=game&format=portrait&obs=1&twitch=SEUCANAL&hide_live=1
+```
+
+---
+
+## ➕ Parâmetros extras (mistura e combina)
+
+Junte no final do link com `&`:
+
+| Parâmetro | Exemplo | O que faz |
 |---|---|---|
-| `twitch` | seunick | Conecta o chat real da Twitch |
-| `hide_live` | 1 | Esconde o badge "AO VIVO/LIVE" |
-| `square` | 1 | Deixa tudo retangular (sem bordas redondas) |
-| `spotify` | 1 | Mostra balão com música tocando (precisa do Snip rodando — só local) |
-| `s_tiktok` | meunick | Mostra badge do TikTok com seu @ |
-| `s_instagram` | meunick | Idem Instagram |
-| `s_youtube` | meucanal | Idem YouTube |
-| `color` | d6f24b | Cor de destaque em hex sem # (ex: ff0080) |
+| `twitch` | `&twitch=meucanal` | Conecta chat real da Twitch (anônimo) |
+| `hide_live` | `&hide_live=1` | Esconde o badge "AO VIVO/LIVE" |
+| `square` | `&square=1` | Tira bordas redondas (deixa retangular) |
+| `spotify` | `&spotify=1` | Mostra balão da música (precisa do Snip — só local) |
+| `s_tiktok` | `&s_tiktok=meunick` | Badge TikTok com seu @ |
+| `s_instagram` | `&s_instagram=meunick` | Badge Instagram |
+| `s_youtube` | `&s_youtube=meucanal` | Badge YouTube |
+| `color` | `&color=ff0080` | Cor de destaque (hex sem #) |
 
-**Exemplo combinando tudo:**
+**Exemplo da hora:** cena de jogo, com chat da Twitch, suas 3 redes, cor rosa, sem AO VIVO:
+
 ```
-?scene=game&format=landscape&obs=1&twitch=meucanal&hide_live=1&s_instagram=meunick&s_youtube=meucanal&color=ff0080
+https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1&s_tiktok=meunick&s_instagram=meunick&s_youtube=meucanal&color=ff0080
 ```
 
 ---
 
-## ❓ Problemas comuns
+## ✅ Checklist final pra cada cena
 
-### "A webcam não aparece"
-A webcam está acima do overlay na lista de fontes. **Arraste a webcam pra abaixo do overlay.**
+Antes de dar OK, confirme:
 
-### "Aparecem quadrados pretos onde deveria estar a webcam"
-Você não está usando `?obs=1` no link. Verifique se o link tem `obs=1`.
-
-### "O chat real não conecta"
-- Verifique se digitou o nome correto do canal (sem @, sem espaços, tudo minúsculo)
-- O canal precisa estar ao vivo OU recém ao vivo pra mensagens aparecerem
-- Abra o link no navegador, aperte F12 e vá em "Console" — se houver erro, me manda print
-
-### "Quero mudar algo só pra uma cena"
-Cada cena tem sua própria URL. Mude os parâmetros pra cada uma. Por exemplo, na cena IRL você pode não querer `hide_live=1` (porque é legal mostrar AO VIVO embaixo da câmera de rua).
-
-### "As bordas redondas no TikTok me incomodam"
-Adicione `&square=1` na URL ou marque "Tudo retangular" no painel.
+- [ ] Resolução do Browser Source = 1920×1080 (Twitch) ou 1080×1920 (TikTok)
+- [ ] URL termina em `&obs=1` (sem isso, fundos não ficam transparentes)
+- [ ] Ordem na lista: Overlay no topo, webcam embaixo
+- [ ] `twitch=SEUCANAL` está com o nick correto (sem @, minúsculo)
+- [ ] Webcam encaixada no quadradinho desenhado pelo overlay
+- [ ] Jogo/tela posicionado no espaço grande à esquerda
 
 ---
 
-## 🎮 Ordem na lista de fontes do OBS (resumo)
+## ❓ Se algo não funcionar
 
-Pra TODAS as cenas com webcam/jogo, a ordem na lista de fontes deve ser:
+### "Aparece quadrado preto onde devia estar a webcam"
+- A URL não tem `&obs=1`. Adicione no final.
+- OU você não atualizou ainda — faça `git push` e aguarde a Vercel.
 
-```
-1. Overlay (Browser Source) ← TOPO (na frente)
-2. Webcam (Video Capture)
-3. Jogo / Tela / Vídeo
-4. Microfone (sem visual, posição não importa)
-```
+### "Webcam não aparece de jeito nenhum"
+- A webcam está acima do overlay na lista. Arraste pra abaixo.
 
-Pras telas de Começando / Volto Já / Fim, só precisa do Overlay (e talvez música no microfone). Não precisa de webcam nem jogo.
+### "Chat real da Twitch não puxa nada"
+- Você não está ao vivo (ou ninguém escreveu ainda)
+- O nick do canal está errado (sem @, sem espaços, tudo minúsculo)
+- Teste no navegador: abra o link, aperte F12 → "Console" → me mande print se houver erro vermelho
 
----
-
-## 🔄 Como atualizar uma URL
-
-Se você quiser mudar algo (ex: trocar o filme da cena React), você pode:
-
-1. **Editar a Browser Source** no OBS: clique nela → ⚙️ → muda a URL
-2. **Ou usar o painel de controle do kit:** abre `https://SEU-LINK.vercel.app/` no navegador, ajusta tudo no painel, clica em "Copiar link p/ OBS", e cola no OBS.
+### "Os ícones LIVE/AO VIVO ainda aparecem"
+- Você não tem `hide_live=1` na URL. Adicione.
+- OU você está numa versão antiga do site (faça push e aguarde).
 
 ---
 
-Qualquer coisa que não der certo, me manda um print do que aparece no OBS e do que você esperava.
+## 🔄 Fluxo recomendado pra começar
+
+1. Faça `git push` pra atualizar a Vercel ⏱️ aguarde 30s
+2. Abra https://obs-bice.vercel.app/ pra confirmar que os 3 controles novos aparecem
+3. Configure SÓ a cena de Jogo primeiro pra testar
+4. Quando funcionar, copia a cena no OBS (clique direito → Duplicar) e troca só a URL do overlay pra outra cena
+5. Repete pras outras cenas
+
+---
+
+Boa sorte! Qualquer dúvida ou erro, manda print.
