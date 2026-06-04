@@ -171,6 +171,30 @@
     box-shadow: 0 0 18px var(--accent-soft), inset 0 0 0 1px rgba(0,0,0,0.4);
     animation: framePulse 4s ease-in-out infinite;
   }
+
+  /* facecam flutuante (TikTok portrait): sombra forte pra destacar da gameplay */
+  .win.facecam {
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 0 3px var(--accent);
+    z-index: 5;
+  }
+  .win.facecam .win-body { border-radius: 50%; overflow: hidden; }
+  /* quando facecam também é accent-frame, deixa a moldura circular igual */
+  .win.facecam.accent-frame::after { border-radius: 50%; }
+
+  /* PORTRAIT (TikTok): fontes maiores pra legibilidade no celular */
+  .stage.portrait .win-title { font-size: 13px; letter-spacing: 0.08em; }
+  .stage.portrait .win-tag   { font-size: 12px; }
+  .stage.portrait .win-bar   { padding: 11px 16px; }
+  .stage.portrait .fill-label { font-size: 13px; }
+  .stage.portrait .live-badge { font-size: 11px; padding: 6px 12px; }
+  .stage.portrait .info-strip { padding: 11px 16px; gap: 12px; }
+  .stage.portrait .info-strip .label { font-size: 14px; }
+  .stage.portrait .info-strip .pill  { font-size: 11px; padding: 4px 10px; }
+  .stage.portrait .cmsg-user { font-size: 14px; }
+  .stage.portrait .cmsg-text { font-size: 14px; line-height: 1.45; }
+  .stage.portrait .cmsg { padding: 2px 0; }
   @keyframes framePulse {
     0%, 100% { opacity: 0.55; }
     50% { opacity: 1; }
@@ -259,6 +283,12 @@
   .social-badge.youtube .si   { background: #ff0000; }
   .social-badge .handle { color: var(--text); }
 
+  /* Badges sociais maiores no PORTRAIT pra legibilidade no celular */
+  .stage.portrait .social-badge { font-size: 14px; padding: 7px 14px 7px 7px; gap: 8px; }
+  .stage.portrait .social-badge .si { width: 26px; height: 26px; }
+  .stage.portrait .social-badge .si svg { width: 14px; height: 14px; }
+  .stage.portrait .social-badges { gap: 8px; }
+
   /* ===================== SPOTIFY BALÃO ===================== */
   .spotify-pill {
     position: absolute;
@@ -323,6 +353,13 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;
   }
   .sp-artist::before { content: '· '; margin-right: 2px; }
+
+  /* Spotify pill maior no PORTRAIT pra legibilidade no celular */
+  .stage.portrait .spotify-pill { padding: 10px 18px 10px 10px; gap: 12px; }
+  .stage.portrait .sp-cover { width: 44px; height: 44px; }
+  .stage.portrait .sp-kicker { font-size: 11px; }
+  .stage.portrait .sp-title  { font-size: 14px; max-width: 180px; }
+  .stage.portrait .sp-artist { font-size: 13px; max-width: 150px; }
 
   /* ===================== IRL: PIN DE LOCALIZAÇÃO ===================== */
   .irl-location {
@@ -710,15 +747,37 @@ function renderSocialBadges(){
     return;
   }
 
-  // No Just Chatting a webcam é gigante: coloca DENTRO dela, no canto inferior
-  // E em qualquer cena PORTRAIT também coloca dentro (evita sair da tela no OBS)
-  if (state.scene === 'chatting' || state.format === 'portrait') {
+  // Just Chatting (qualquer formato): cam é gigante, coloca DENTRO dela no canto inferior
+  if (state.scene === 'chatting') {
     const camBody = camWin.querySelector('.win-body') || camWin;
     badges.style.left = '0';
     badges.style.right = '0';
     badges.style.bottom = '8px';
     badges.style.width = 'auto';
     camBody.appendChild(badges);
+    return;
+  }
+
+  // PORTRAIT (game/react/reactfree): facecam é pequena/redonda no canto inferior do gameplay.
+  // Põe os badges no lado OPOSTO à facecam, mesmo bottom (visualmente lado a lado)
+  if (state.format === 'portrait') {
+    const facecam = stageEl.querySelector('.win.facecam');
+    const facecamOnLeft = facecam && facecam.style.left;
+    badges.style.bottom = '36%';
+    badges.style.flexDirection = 'column';
+    if (facecamOnLeft) {
+      // facecam à esquerda -> badges à direita
+      badges.style.right = '14px';
+      badges.style.left = 'auto';
+      badges.style.alignItems = 'flex-end';
+    } else {
+      // facecam à direita -> badges à esquerda
+      badges.style.left = '14px';
+      badges.style.right = 'auto';
+      badges.style.alignItems = 'flex-start';
+    }
+    badges.style.width = 'auto';
+    stageEl.appendChild(badges);
     return;
   }
 
@@ -809,13 +868,18 @@ function renderSpotifyPill(){
     pill.style.bottom = '';
     pill.style.left = '';
     pill.style.right = '';
+    pill.style.maxWidth = '';
+    // garante que está como filho do stage
+    if (pill.parentNode !== stageEl) {
+      pill.remove();
+      stageEl.appendChild(pill);
+    }
     if (state.scene === 'irl') {
       // IRL: cam ocupa tudo; põe abaixo do "AO VIVO" no topo esquerdo
       pill.style.top = '60px';
       pill.style.left = '14px';
-    } else {
-      // Demais portrait: coloca DENTRO da webcam, no canto superior
-      // (igual os badges sociais ficam no canto inferior da cam)
+    } else if (state.scene === 'chatting') {
+      // Chatting: cam grande no topo, chat embaixo. Põe Spotify entre eles, dentro da cam
       const camWindows = stageEl.querySelectorAll('.win');
       let camWin = null;
       for (const w of camWindows){
@@ -823,7 +887,6 @@ function renderSpotifyPill(){
       }
       if (camWin) {
         const camBody = camWin.querySelector('.win-body') || camWin;
-        // muda o parent pra dentro da cam
         if (pill.parentNode !== camBody) {
           pill.remove();
           camBody.appendChild(pill);
@@ -831,6 +894,29 @@ function renderSpotifyPill(){
         pill.style.top = '8px';
         pill.style.left = '8px';
         pill.style.right = '8px';
+        pill.style.maxWidth = 'none';
+      }
+    } else {
+      // game / react / reactfree portrait: Spotify dentro do TOPO da janela gameplay/video
+      // do lado OPOSTO à facecam (que está no bottom dessa janela)
+      const firstWin = stageEl.querySelector('.win');
+      if (firstWin && !firstWin.classList.contains('facecam')) {
+        const winBody = firstWin.querySelector('.win-body') || firstWin;
+        if (pill.parentNode !== winBody) {
+          pill.remove();
+          winBody.appendChild(pill);
+        }
+        const facecam = stageEl.querySelector('.win.facecam');
+        const facecamOnLeft = facecam && facecam.style.left;
+        pill.style.top    = '12px';
+        pill.style.bottom = 'auto';
+        if (facecamOnLeft) {
+          pill.style.right = '12px';
+          pill.style.left  = 'auto';
+        } else {
+          pill.style.left  = '12px';
+          pill.style.right = 'auto';
+        }
         pill.style.maxWidth = 'none';
       }
     }
@@ -938,19 +1024,21 @@ const scenes = {
           <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
         </div>
       ` : `
-        <!-- PORTRAIT: gameplay topo, cam meio, chat baixo -->
-        <div class="win" style="top:2%; left:3%; width:94%; height:42%;">
+        <!-- PORTRAIT (TikTok): gameplay grande topo + facecam flutuando + chat embaixo -->
+        <div class="win" style="top:2%; left:3%; width:94%; height:60%;">
           <div class="win-bar"><span class="win-dot live"></span><span class="win-title">GAME<b>PLAY</b></span><span class="win-tag">9:16</span></div>
           <div class="win-body"><div class="game-fill"><div class="fill-icon">🎮</div><div class="fill-label">Captura do jogo</div></div><div class="shimmer"></div></div>
         </div>
-        <div class="win accent-frame" style="top:45.5%; left:3%; width:48%; height:42%;">
+        <!-- facecam pequena flutuando no canto inferior esquerdo do gameplay -->
+        <div class="win accent-frame facecam" style="bottom:36%; left:5%; width:30%; height:17%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
         </div>
-        <div class="win" style="top:45.5%; right:3%; width:43%; height:42%;">
-          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span></div>
+        <!-- chat embaixo, largura total -->
+        <div class="win" style="bottom:7%; left:3%; width:94%; height:25%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
-        <div class="info-strip" style="bottom:2.5%; left:3%; width:94%;">
+        <div class="info-strip" style="bottom:2%; left:3%; width:94%;">
           <span class="pill">Live</span><span class="label"><b style="color:var(--accent)">SEU JOGO</b></span>
           <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
         </div>
@@ -979,15 +1067,18 @@ const scenes = {
           <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
         </div>
       ` : `
-        <div class="win accent-frame" style="top:2%; left:3%; width:94%; height:36%;">
-          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">▶</span></div>
-          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Janela de vídeo</div></div><div class="shimmer"></div></div>
+        <!-- PORTRAIT (TikTok): vídeo grande topo + facecam flutuando + chat embaixo -->
+        <div class="win accent-frame" style="top:2%; left:3%; width:94%; height:60%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">${reactBarTag()}</span></div>
+          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div></div><div class="shimmer"></div></div>
         </div>
-        <div class="win" style="top:39.5%; left:3%; width:94%; aspect-ratio:16/9;">
-          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>LIVE</div></div>
+        <!-- facecam pequena flutuando -->
+        <div class="win facecam" style="bottom:36%; right:5%; width:30%; height:17%;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
         </div>
-        <div class="win" style="bottom:7%; left:3%; width:94%; height:17%;">
-          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span></div>
+        <!-- chat embaixo -->
+        <div class="win" style="bottom:7%; left:3%; width:94%; height:25%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
         <div class="info-strip" style="bottom:2%; left:3%; width:94%;">
@@ -1014,15 +1105,18 @@ const scenes = {
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
       ` : `
-        <div class="win accent-frame" style="top:2%; left:3%; width:94%; height:42%;">
+        <!-- PORTRAIT (TikTok): vídeo grande topo + facecam flutuando + chat embaixo -->
+        <div class="win accent-frame" style="top:2%; left:3%; width:94%; height:62%;">
           <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">${clockText()}</span></div>
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Tela / vídeo / qualquer fonte</div></div><div class="shimmer"></div></div>
         </div>
-        <div class="win" style="top:45.5%; left:3%; width:48%; height:42%;">
+        <!-- facecam pequena flutuando -->
+        <div class="win facecam" style="bottom:34%; right:5%; width:30%; height:17%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
         </div>
-        <div class="win" style="top:45.5%; right:3%; width:43%; height:42%;">
-          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span></div>
+        <!-- chat embaixo -->
+        <div class="win" style="bottom:3%; left:3%; width:94%; height:28%;">
+          <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
       `}
