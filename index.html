@@ -1248,18 +1248,22 @@ const scenes = {
     const land = fmt==='landscape';
     return `
       ${land ? `
-        <div class="win accent-frame" style="top:3%; left:2.5%; width:70%; height:68%;">
+        <!-- janela de vídeo grande à esquerda -->
+        <div class="win accent-frame" style="top:3%; left:2.5%; width:70%; height:84%;">
           <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">${reactBarTag()}</span></div>
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div><div class="fill-sub">browser / media source</div></div><div class="shimmer"></div></div>
         </div>
-        <div class="win" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/11;">
+        <!-- webcam canto superior direito -->
+        <div class="win" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/10;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
         </div>
-        <div class="win" style="top:50%; right:2.5%; width:24%; height:38%;">
+        <!-- chat embaixo da webcam -->
+        <div class="win" style="bottom:3%; right:2.5%; width:24%; height:54%;">
           <div class="win-bar"><span class="win-dot"></span><span class="win-title">CHAT</span><span class="win-tag">${clockText()}</span></div>
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
-        <div class="info-strip" style="bottom:3%; left:2.5%; width:70%;">
+        <!-- info embaixo da janela de vídeo -->
+        <div class="info-strip" style="bottom:3%; left:2.5%; width:70%; justify-content:flex-start;">
           <span class="pill">${reactPillText()}</span><span class="label">Reagindo a ${reactTitleHtml()}</span>
           <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
         </div>
@@ -1270,7 +1274,7 @@ const scenes = {
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div></div><div class="shimmer"></div></div>
         </div>
         <!-- facecam pequena flutuando -->
-        <div class="win facecam" style="bottom:36%; right:5%; width:30%; height:17%;">
+        <div class="win facecam" style="bottom:40%; right:5%; width:28%; height:15%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
         </div>
         <!-- chat embaixo -->
