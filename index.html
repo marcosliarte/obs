@@ -112,6 +112,21 @@
   .stage.landscape { width: min(1100px, 95vw); aspect-ratio: 16 / 9; }
   .stage.portrait  { width: min(420px, 90vw); aspect-ratio: 9 / 16; }
 
+  /* ===================== CAMADA DE FUNDO (atrás de tudo) ===================== */
+  .bg-layer {
+    position: absolute; inset: 0; z-index: 0;
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    pointer-events: none;
+  }
+  /* tudo dentro do stage fica acima do fundo */
+  .stage > .win,
+  .stage > .fs,
+  .stage > .info-strip,
+  .stage > .social-badges,
+  .stage > .spotify-pill,
+  .stage > .irl-location,
+  .stage > .irl-scene { position: absolute; z-index: 1; }
+
   /* esconde tudo no modo OBS */
   body.obs .controls, body.obs .hint-bar, body.obs .react-editor { display: none !important; }
   body.obs .stage-wrap { padding: 0; min-height: 100vh; align-items: stretch; }
@@ -159,14 +174,14 @@
   .win {
     position: absolute;
     background: var(--bg-soft);
-    border-radius: var(--radius);
+    border-radius: 0;
     border: 1px solid var(--panel-border);
     overflow: hidden;
     display: flex; flex-direction: column;
   }
   /* moldura de destaque animada */
   .win.accent-frame::after {
-    content: ''; position: absolute; inset: 0; border-radius: var(--radius);
+    content: ''; position: absolute; inset: 0; border-radius: 0;
     border: 2px solid var(--accent); pointer-events: none;
     box-shadow: 0 0 18px var(--accent-soft), inset 0 0 0 1px rgba(0,0,0,0.4);
     animation: framePulse 4s ease-in-out infinite;
@@ -174,14 +189,14 @@
 
   /* facecam flutuante (TikTok portrait): sombra forte pra destacar da gameplay */
   .win.facecam {
-    border-radius: 50%;
+    border-radius: 0;
     overflow: hidden;
     box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 0 3px var(--accent);
     z-index: 5;
   }
-  .win.facecam .win-body { border-radius: 50%; overflow: hidden; }
-  /* quando facecam também é accent-frame, deixa a moldura circular igual */
-  .win.facecam.accent-frame::after { border-radius: 50%; }
+  .win.facecam .win-body { border-radius: 0; overflow: hidden; }
+  .win.facecam.accent-frame::after { border-radius: 0; }
+
 
   /* PORTRAIT (TikTok): fontes maiores pra legibilidade no celular */
   .stage.portrait .win-title { font-size: 13px; letter-spacing: 0.08em; }
@@ -607,6 +622,19 @@
     </label>
   </div>
 
+  <div class="ctrl-group">
+    <span class="ctrl-label">Fundo</span>
+    <select id="bgType" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; outline:none; cursor:pointer;">
+      <option value="none">Transparente</option>
+      <option value="solid">Cor sólida</option>
+      <option value="gradient">Gradiente</option>
+      <option value="image">Imagem (URL)</option>
+    </select>
+    <input type="color" id="bgColor1" value="#0a0a0c" title="Cor 1" style="width:30px; height:30px; border:none; border-radius:6px; background:none; cursor:pointer;">
+    <input type="color" id="bgColor2" value="#1a1a2e" title="Cor 2 (gradiente)" style="width:30px; height:30px; border:none; border-radius:6px; background:none; cursor:pointer; display:none;">
+    <input type="text" id="bgImg" placeholder="URL da imagem (https://...)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:220px; outline:none; display:none;">
+  </div>
+
   <button class="copy-link-main" id="copyLinkMain" style="margin-left:auto;">🔗 Copiar link p/ OBS</button>
 </div>
 
@@ -680,6 +708,29 @@
    STATE
 ========================================================================= */
 const state = { format: 'landscape', scene: 'game', color: '#d6f24b' };
+
+/* fundo: type = 'none' | 'solid' | 'gradient' | 'image' */
+const bg = {
+  type: 'none',
+  color1: '#0a0a0c',
+  color2: '#1a1a2e',
+  angle: 135,
+  imageUrl: ''
+};
+
+function applyBackground(){
+  const layer = document.getElementById('bgLayer');
+  if(!layer) return;
+  if(bg.type === 'solid'){
+    layer.style.background = bg.color1;
+  } else if(bg.type === 'gradient'){
+    layer.style.background = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
+  } else if(bg.type === 'image' && bg.imageUrl){
+    layer.style.background = `#000 url("${bg.imageUrl}") center / cover no-repeat`;
+  } else {
+    layer.style.background = 'transparent';
+  }
+}
 const stage = document.getElementById('stage');
 
 /* estado da cena de react (filme ou série) */
@@ -999,6 +1050,12 @@ if (params.get('obs') === '1') {
 if (params.get('hide_live') === '1') document.body.classList.add('hide-live');
 if (params.get('square') === '1') document.body.classList.add('square');
 if (params.get('twitch')) TWITCH.channel = params.get('twitch').toLowerCase();
+/* fundo via URL */
+if (params.get('bg')) bg.type = params.get('bg');           // solid | gradient | image
+if (params.get('bg_color')) bg.color1 = '#' + params.get('bg_color').replace('#','');
+if (params.get('bg_color2')) bg.color2 = '#' + params.get('bg_color2').replace('#','');
+if (params.get('bg_angle')) bg.angle = parseInt(params.get('bg_angle')) || 135;
+if (params.get('bg_img')) { bg.imageUrl = decodeURIComponent(params.get('bg_img')); }
 
 /* =========================================================================
    COR DE DESTAQUE
@@ -1358,6 +1415,12 @@ function render(){
   clearChat();
   stage.className = 'stage ' + state.format;
   stage.innerHTML = scenes[state.scene](state.format);
+  // re-insere a camada de fundo (foi apagada pelo innerHTML)
+  const bg = document.createElement('div');
+  bg.id = 'bgLayer';
+  bg.className = 'bg-layer';
+  stage.insertBefore(bg, stage.firstChild);
+  applyBackground();
   // detecta info-strip pra ajustar posição do Spotify
   if (stage.querySelector('.info-strip')) stage.classList.add('has-infobar');
   if (stage.querySelector('.irl-location')) stage.classList.add('has-irl-pin');
@@ -1442,6 +1505,12 @@ function buildSceneURL(){
   if(TWITCH.channel) p.set('twitch', TWITCH.channel);
   if(document.body.classList.contains('hide-live')) p.set('hide_live', '1');
   if(document.body.classList.contains('square')) p.set('square', '1');
+  if(bg.type !== 'none'){
+    p.set('bg', bg.type);
+    if(bg.type==='solid' || bg.type==='gradient') p.set('bg_color', bg.color1.replace('#',''));
+    if(bg.type==='gradient'){ p.set('bg_color2', bg.color2.replace('#','')); p.set('bg_angle', String(bg.angle)); }
+    if(bg.type==='image' && bg.imageUrl) p.set('bg_img', encodeURIComponent(bg.imageUrl));
+  }
   ['tiktok','instagram','youtube'].forEach(k=>{
     if(social[k].on && social[k].handle.trim()) p.set('s_' + k, social[k].handle.trim());
   });
@@ -1519,6 +1588,22 @@ document.getElementById('squareToggle').addEventListener('change', e=>{
   document.body.classList.toggle('square', e.target.checked);
 });
 
+/* ----- FUNDO HANDLERS ----- */
+function updateBgFieldsVisibility(){
+  const t = bg.type;
+  document.getElementById('bgColor1').style.display = (t==='solid'||t==='gradient') ? '' : 'none';
+  document.getElementById('bgColor2').style.display = (t==='gradient') ? '' : 'none';
+  document.getElementById('bgImg').style.display = (t==='image') ? '' : 'none';
+}
+document.getElementById('bgType').addEventListener('change', e=>{
+  bg.type = e.target.value;
+  updateBgFieldsVisibility();
+  applyBackground();
+});
+document.getElementById('bgColor1').addEventListener('input', e=>{ bg.color1 = e.target.value; applyBackground(); });
+document.getElementById('bgColor2').addEventListener('input', e=>{ bg.color2 = e.target.value; applyBackground(); });
+document.getElementById('bgImg').addEventListener('input', e=>{ bg.imageUrl = e.target.value.trim(); applyBackground(); });
+
 /* ----- IRL HANDLERS ----- */
 document.getElementById('irlLocation').addEventListener('input', e=>{
   irlState.location = e.target.value;
@@ -1580,6 +1665,12 @@ document.getElementById('irlKicker').value   = irlState.kicker;
 document.getElementById('twitchChannel').value = TWITCH.channel || '';
 document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
 document.getElementById('squareToggle').checked = document.body.classList.contains('square');
+/* sync fundo */
+document.getElementById('bgType').value = bg.type;
+document.getElementById('bgColor1').value = bg.color1;
+document.getElementById('bgColor2').value = bg.color2;
+document.getElementById('bgImg').value = bg.imageUrl;
+updateBgFieldsVisibility();
 syncPanel();
 render();
 </script>
