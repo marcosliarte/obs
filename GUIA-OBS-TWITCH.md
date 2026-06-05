@@ -167,6 +167,48 @@ https://obs-bice.vercel.app/?scene=game&format=portrait&obs=1&twitch=SEUCANAL&hi
 
 ---
 
+## 💬 Conectar o chat (3 modos)
+
+No painel, no grupo "Chat", você escolhe entre 3 modos:
+
+### 1. Teste (fake)
+Chat de mentira animado, só pra ver o visual. Use `&chat=test` na URL.
+
+### 2. Twitch (nome do canal)
+Conecta direto no chat da Twitch, anônimo (só leitura). Digite o nome do canal no painel, ou use `&twitch=seucanal` na URL.
+
+### 3. URL externa (widget) — funciona com QUALQUER plataforma
+Cole o link de um widget de chat e ele aparece dentro da janela. Use `&chat_url=LINK` na URL (o painel codifica automaticamente).
+
+**Onde pegar o link do widget pra cada plataforma:**
+
+- **Kick:** o popout do chat — `https://kick.com/SEUCANAL/chatroom` (ou use um widget tipo o do StreamElements que suporta Kick)
+- **StreamElements (qualquer plataforma):** Dashboard → Overlays → crie um widget de chat → copie a URL do overlay
+- **Streamlabs:** Dashboard → Chat Box widget → copie a URL
+- **Nightbot/Social Stream:** copie a URL do widget gerado
+- **YouTube:** use o popout `https://www.youtube.com/live_chat?v=ID_DO_VIDEO` (pode não permitir embed dependendo do navegador do OBS)
+
+> ⚠️ Algumas plataformas bloqueiam ser embutidas em iframe. Se um widget aparecer em branco, use um serviço como StreamElements ou Social Stream Ninja, que são feitos pra isso e funcionam com Twitch, Kick, YouTube etc ao mesmo tempo.
+
+**Exemplo com widget do StreamElements:**
+```
+https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&hide_live=1&chat_url=https%3A%2F%2Fstreamelements.com%2Fseu-widget
+```
+
+---
+
+## 🎨 Fundo (cor, gradiente ou imagem)
+
+No painel, grupo "Fundo". Ou por URL:
+
+- Cor sólida: `&bg=solid&bg_color=1a0b2e`
+- Gradiente: `&bg=gradient&bg_color=ff0080&bg_color2=7928ca&bg_angle=135`
+- Imagem: `&bg=image&bg_img=https://link-da-imagem.jpg`
+
+O fundo fica atrás de tudo, inclusive atrás da webcam/jogo.
+
+---
+
 ## ➕ Parâmetros extras (mistura e combina)
 
 Junte no final do link com `&`:
