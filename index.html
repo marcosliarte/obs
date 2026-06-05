@@ -608,8 +608,14 @@
   </div>
 
   <div class="ctrl-group">
-    <span class="ctrl-label">Twitch</span>
-    <input type="text" id="twitchChannel" placeholder="nome do seu canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:200px; outline:none;">
+    <span class="ctrl-label">Chat</span>
+    <select id="chatMode" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; outline:none; cursor:pointer;">
+      <option value="test">Teste (fake)</option>
+      <option value="twitch">Twitch (nome do canal)</option>
+      <option value="url">URL externa (widget)</option>
+    </select>
+    <input type="text" id="twitchChannel" placeholder="nome do canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:180px; outline:none; display:none;">
+    <input type="text" id="chatUrl" placeholder="URL do widget (StreamElements, Kick, etc)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:280px; outline:none; display:none;">
   </div>
 
   <div class="ctrl-group">
@@ -708,6 +714,13 @@
    STATE
 ========================================================================= */
 const state = { format: 'landscape', scene: 'game', color: '#d6f24b' };
+
+/* estado do chat (precisa existir ANTES de ler os params da URL) */
+const TWITCH = {
+  channel: null, client: null, containers: new Set(), maxMsgs: 12, scriptPromise: null
+};
+/* modo de chat: 'test' (fake) | 'twitch' (tmi.js) | 'url' (iframe externo) */
+const CHAT = { mode: 'test', url: '' };
 
 /* fundo: type = 'none' | 'solid' | 'gradient' | 'image' */
 const bg = {
@@ -1049,7 +1062,9 @@ if (params.get('obs') === '1') {
 }
 if (params.get('hide_live') === '1') document.body.classList.add('hide-live');
 if (params.get('square') === '1') document.body.classList.add('square');
-if (params.get('twitch')) TWITCH.channel = params.get('twitch').toLowerCase();
+if (params.get('twitch')) { TWITCH.channel = params.get('twitch').toLowerCase(); CHAT.mode = 'twitch'; }
+if (params.get('chat_url')) { CHAT.url = decodeURIComponent(params.get('chat_url')); CHAT.mode = 'url'; }
+if (params.get('chat')) CHAT.mode = params.get('chat'); // força modo: test|twitch|url
 /* fundo via URL */
 if (params.get('bg')) bg.type = params.get('bg');           // solid | gradient | image
 if (params.get('bg_color')) bg.color1 = '#' + params.get('bg_color').replace('#','');
@@ -1073,14 +1088,6 @@ function applyColor(hex) {
 /* =========================================================================
    CHAT (Twitch real via tmi.js, com fallback pro mock pra preview)
 ========================================================================= */
-const TWITCH = {
-  channel: null,         // nome do canal (sem @, ex: 'meucanal')
-  client: null,          // instância tmi.Client
-  containers: new Set(), // contêineres ativos pra receber mensagens
-  maxMsgs: 12,
-  scriptPromise: null
-};
-
 const mockUsers = ['marina_o','pedrohq','cafe_amargo','ju.design','rafa_dev','lis_pod','thomas.b','ana_bea','gui_santos','dudu99'];
 const mockTexts = ['kkkk não acredito','salve galera','esse jogo é insano','primeira vez aqui, curtindo','manda mais disso','GG demais','reaja a esse aqui','tá voando hein','que clipe lindo','concordo total','rip kkk','vamoo','isso aí merece corte','boa boa','huehue'];
 const chatColors = ['#a78bfa','#fbbf24','#f472b6','#34d399','#60a5fa','#fb923c','#22d3ee','#f87171'];
@@ -1145,14 +1152,27 @@ async function connectTwitchChat(channelName){
 let chatTimers = [];
 function startChat(container, max=10){
   TWITCH.maxMsgs = max;
-  if (TWITCH.channel){
-    // modo real: registra o container pra receber mensagens da Twitch
+
+  // MODO URL: incorpora widget externo via iframe dentro da janela de chat
+  if (CHAT.mode === 'url' && CHAT.url){
+    const win = container.closest('.win') || container.parentElement;
+    const body = win ? win.querySelector('.win-body') : container.parentElement;
+    if (body){
+      body.innerHTML = `<iframe src="${CHAT.url.replace(/"/g,'&quot;')}"
+        style="width:100%; height:100%; border:0; background:transparent;"
+        allowtransparency="true" frameborder="0" scrolling="no"></iframe>`;
+    }
+    return;
+  }
+
+  // MODO TWITCH: conecta via tmi.js
+  if (CHAT.mode === 'twitch' && TWITCH.channel){
     TWITCH.containers.add(container);
-    // conecta se ainda não conectado
     if (!TWITCH.client) connectTwitchChat(TWITCH.channel);
     return;
   }
-  // modo mock: pra preview no painel ou se não configurou canal
+
+  // MODO TESTE (fake): mensagens animadas pra preview
   function tick(){
     const u = mockUsers[Math.random()*mockUsers.length|0];
     const t = mockTexts[Math.random()*mockTexts.length|0];
@@ -1502,7 +1522,9 @@ function buildSceneURL(){
     if(irlState.kicker && irlState.kicker !== 'EXPLORANDO') p.set('irl_kicker', irlState.kicker);
   }
   if(SP.enabled) p.set('spotify', '1');
-  if(TWITCH.channel) p.set('twitch', TWITCH.channel);
+  if(CHAT.mode === 'twitch' && TWITCH.channel) p.set('twitch', TWITCH.channel);
+  if(CHAT.mode === 'url' && CHAT.url) p.set('chat_url', encodeURIComponent(CHAT.url));
+  if(CHAT.mode === 'test') p.set('chat', 'test');
   if(document.body.classList.contains('hide-live')) p.set('hide_live', '1');
   if(document.body.classList.contains('square')) p.set('square', '1');
   if(bg.type !== 'none'){
@@ -1577,6 +1599,23 @@ document.getElementById('twitchChannel').addEventListener('change', e=>{
   // se desconecta o cliente atual e re-renderiza pra reconectar
   if (TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} TWITCH.client = null; }
   TWITCH.containers.clear();
+  render();
+});
+
+/* ----- MODO DE CHAT HANDLERS ----- */
+function updateChatFieldsVisibility(){
+  document.getElementById('twitchChannel').style.display = (CHAT.mode==='twitch') ? '' : 'none';
+  document.getElementById('chatUrl').style.display = (CHAT.mode==='url') ? '' : 'none';
+}
+document.getElementById('chatMode').addEventListener('change', e=>{
+  CHAT.mode = e.target.value;
+  updateChatFieldsVisibility();
+  // desconecta twitch se mudou pra outro modo
+  if (CHAT.mode !== 'twitch' && TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} TWITCH.client = null; }
+  render();
+});
+document.getElementById('chatUrl').addEventListener('change', e=>{
+  CHAT.url = e.target.value.trim();
   render();
 });
 
@@ -1663,6 +1702,9 @@ document.getElementById('irlLocation').value = irlState.location;
 document.getElementById('irlKicker').value   = irlState.kicker;
 /* sync Twitch e estilo */
 document.getElementById('twitchChannel').value = TWITCH.channel || '';
+document.getElementById('chatMode').value = CHAT.mode;
+document.getElementById('chatUrl').value = CHAT.url || '';
+updateChatFieldsVisibility();
 document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
 document.getElementById('squareToggle').checked = document.body.classList.contains('square');
 /* sync fundo */
