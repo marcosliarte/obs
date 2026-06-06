@@ -1106,13 +1106,33 @@ function sbSetStatus(ok, msg) {
 
 async function sbSave(data) {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({ id: OVERLAY_ID, config: data, updated_at: new Date().toISOString() })
-    });
-    if (r.ok) sbSetStatus(true, 'Salvo ✓');
-    else sbSetStatus(false, 'Erro ao salvar');
+    /* PATCH atualiza a linha existente (id=default criada pelo SQL).
+       Mais confiável que POST upsert, que falha com conflito de chave. */
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}`,
+      {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ config: data, updated_at: new Date().toISOString() })
+      }
+    );
+    if (r.ok) {
+      sbSetStatus(true, 'Salvo ✓');
+    } else {
+      /* se a linha não existe (404/0 rows), tenta criar via POST */
+      const txt = await r.text();
+      if (r.status === 404 || r.status === 400) {
+        const rp = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config`, {
+          method: 'POST',
+          headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+          body: JSON.stringify({ id: OVERLAY_ID, config: data, updated_at: new Date().toISOString() })
+        });
+        sbSetStatus(rp.ok, rp.ok ? 'Salvo ✓' : 'Erro ao salvar');
+      } else {
+        sbSetStatus(false, 'Erro ao salvar (' + r.status + ')');
+        console.warn('[Supabase] save falhou:', r.status, txt);
+      }
+    }
   } catch(e) {
     sbSetStatus(false, 'Sem conexão');
     console.warn('[Supabase] falha ao salvar:', e);
@@ -1121,9 +1141,10 @@ async function sbSave(data) {
 
 async function sbLoad() {
   try {
+    /* cache:no-store + timestamp evita o OBS (Chromium) ler resposta cacheada */
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config`,
-      { headers: sbHeaders() }
+      `${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config&t=${Date.now()}`,
+      { headers: sbHeaders(), cache: 'no-store' }
     );
     if (!r.ok) { sbSetStatus(false, 'Erro ao carregar'); return null; }
     const rows = await r.json();

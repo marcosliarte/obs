@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Teste Supabase — StreamKit</title>
+<style>
+  body { font-family: monospace; background: #0c0c0e; color: #f5f5f6; padding: 24px; line-height: 1.6; }
+  h1 { font-size: 18px; color: #d6f24b; }
+  button { background: #d6f24b; color: #0a0a0a; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer; margin: 6px 6px 6px 0; font-family: inherit; }
+  button:hover { opacity: 0.85; }
+  pre { background: #141417; border: 1px solid #2a2a2e; border-radius: 8px; padding: 14px; white-space: pre-wrap; word-break: break-all; margin: 12px 0; }
+  .ok { color: #34d399; }
+  .err { color: #f87171; }
+  input { background: #141417; border: 1px solid #2a2a2e; color: #f5f5f6; border-radius: 6px; padding: 8px; font-family: inherit; width: 200px; }
+</style>
+</head>
+<body>
+<h1>🔧 Diagnóstico Supabase — StreamKit</h1>
+<p>Use esta página para testar se o Supabase está funcionando. Abra o Console (F12) para ver detalhes.</p>
+
+<div>
+  <button onclick="testLoad()">1. Testar LEITURA</button>
+  <button onclick="testSave()">2. Testar ESCRITA</button>
+  <button onclick="testFull()">3. Teste completo (escreve e lê)</button>
+</div>
+<div style="margin-top:12px;">
+  <input type="text" id="testColor" value="#ff0000" placeholder="cor de teste">
+  <button onclick="saveColor()">Salvar essa cor</button>
+</div>
+
+<pre id="out">Clique num botão para começar...</pre>
+
+<script>
+const SUPABASE_URL = 'https://lzfkwdirmwcuwgrgiguq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_PeRkBtbqIR4XK5jvkrVz_g_MVVVWYPQ';
+const OVERLAY_ID = 'default';
+
+const out = document.getElementById('out');
+function log(msg, cls) {
+  const span = cls ? `<span class="${cls}">${msg}</span>` : msg;
+  out.innerHTML += span + '\n';
+  console.log(msg);
+}
+function clear() { out.innerHTML = ''; }
+
+function headers(extra) {
+  return Object.assign({
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+  }, extra || {});
+}
+
+async function testLoad() {
+  clear();
+  log('Carregando do Supabase...');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=*&t=${Date.now()}`, { headers: headers(), cache: 'no-store' });
+    log('Status: ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err');
+    const txt = await r.text();
+    log('Resposta:');
+    log(txt);
+    if (r.status === 401 || r.status === 403) log('\n⚠️ ERRO DE PERMISSÃO — rode o SQL de setup (políticas RLS) no Supabase!', 'err');
+    if (txt === '[]') log('\n⚠️ A tabela existe mas está VAZIA. Rode o INSERT do SQL de setup.', 'err');
+  } catch(e) {
+    log('ERRO: ' + e.message, 'err');
+  }
+}
+
+async function testSave() {
+  clear();
+  log('Salvando no Supabase (PATCH)...');
+  const body = JSON.stringify({ config: { teste: 'ok', quando: new Date().toISOString() }, updated_at: new Date().toISOString() });
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}`, {
+      method: 'PATCH', headers: headers({ 'Prefer': 'return=representation' }), body
+    });
+    log('Status: ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err');
+    const txt = await r.text();
+    log('Resposta:');
+    log(txt);
+    if (r.ok && txt !== '[]') log('\n✅ ESCRITA FUNCIONOU!', 'ok');
+    if (txt === '[]') log('\n⚠️ PATCH não encontrou a linha id=default. Rode o INSERT do SQL.', 'err');
+    if (r.status === 401 || r.status === 403) log('\n⚠️ ERRO DE PERMISSÃO — falta a política de UPDATE no SQL!', 'err');
+  } catch(e) {
+    log('ERRO: ' + e.message, 'err');
+  }
+}
+
+async function saveColor() {
+  clear();
+  const color = document.getElementById('testColor').value;
+  log('Salvando cor ' + color + '...');
+  const body = JSON.stringify({ config: { state: { color: color, scene: 'game', format: 'landscape' } }, updated_at: new Date().toISOString() });
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}`, {
+      method: 'PATCH', headers: headers({ 'Prefer': 'return=representation' }), body
+    });
+    log('Status: ' + r.status, r.ok ? 'ok' : 'err');
+    log(await r.text());
+    if (r.ok) log('\n✅ Cor salva! Agora abra o overlay no OBS e veja se mudou.', 'ok');
+  } catch(e) {
+    log('ERRO: ' + e.message, 'err');
+  }
+}
+
+async function testFull() {
+  clear();
+  const marca = 'teste_' + Date.now();
+  log('1) Escrevendo marca: ' + marca);
+  const body = JSON.stringify({ config: { marca }, updated_at: new Date().toISOString() });
+  try {
+    const rw = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}`, {
+      method: 'PATCH', headers: headers({ 'Prefer': 'return=minimal' }), body
+    });
+    log('   Escrita status: ' + rw.status, rw.ok ? 'ok' : 'err');
+
+    log('2) Lendo de volta...');
+    const rr = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config&t=${Date.now()}`, { headers: headers(), cache: 'no-store' });
+    const data = await rr.json();
+    log('   Leitura: ' + JSON.stringify(data));
+    const lida = data && data[0] && data[0].config && data[0].config.marca;
+    if (lida === marca) log('\n✅✅ TUDO FUNCIONANDO! Escreveu e leu a mesma marca.', 'ok');
+    else log('\n❌ A marca lida (' + lida + ') é diferente da escrita (' + marca + ').', 'err');
+  } catch(e) {
+    log('ERRO: ' + e.message, 'err');
+  }
+}
+</script>
+</body>
+</html>
