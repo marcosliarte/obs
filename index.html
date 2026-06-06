@@ -166,7 +166,7 @@
   /* ===================== JANELA / WINDOW (componente base) ===================== */
   .win {
     position: absolute;
-    background: rgba(20, 20, 22, 0.3);
+    background: transparent;
     border-radius: 0;
     border: 1px solid var(--panel-border);
     overflow: hidden;
@@ -175,7 +175,7 @@
   /* Webcam: totalmente transparente (sem mostrar fundo) */
   .win:has(.cam-fill) {
     background: transparent !important;
-    border: transparent;
+    border-color: transparent;
   }
   /* moldura de destaque animada */
   .win.accent-frame::after {
@@ -757,47 +757,11 @@ const bg = {
 };
 
 function applyBackground(){
+  // Fundo sempre transparente - sources (webcam, jogo, react) aparecem por trás da moldura
   const stageEl = document.getElementById('stage');
   if(!stageEl) return;
-  
-  // Stage sempre transparente para webcam real passar (quando colocada atrás)
   stageEl.style.backgroundColor = 'transparent';
   stageEl.style.backgroundImage = 'none';
-  
-  // Aplicar background APENAS nas janelas que NÃO são webcam (jogo, react, chat)
-  const nonCamWindows = stageEl.querySelectorAll('.win:not(:has(.cam-fill))');
-  
-  if(bg.type === 'solid'){
-    nonCamWindows.forEach(win => {
-      win.style.backgroundColor = bg.color1;
-      win.style.backgroundImage = 'none';
-    });
-  } else if(bg.type === 'gradient'){
-    nonCamWindows.forEach(win => {
-      win.style.backgroundColor = bg.color1;
-      win.style.backgroundImage = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
-    });
-  } else if(bg.type === 'image' && bg.imageUrl){
-    nonCamWindows.forEach(win => {
-      win.style.backgroundColor = '#000';
-      win.style.backgroundImage = `url("${bg.imageUrl}")`;
-      win.style.backgroundSize = 'cover';
-      win.style.backgroundPosition = 'center';
-      win.style.backgroundRepeat = 'no-repeat';
-    });
-  } else {
-    /* nenhum fundo customizado: restaura o checkerboard padrão */
-    nonCamWindows.forEach(win => {
-      win.style.backgroundColor = 'transparent';
-      win.style.backgroundImage = 
-        'linear-gradient(45deg, #18181b 25%, transparent 25%), ' +
-        'linear-gradient(-45deg, #18181b 25%, transparent 25%), ' +
-        'linear-gradient(45deg, transparent 75%, #18181b 75%), ' +
-        'linear-gradient(-45deg, transparent 75%, #18181b 75%)';
-      win.style.backgroundSize = '24px 24px';
-      win.style.backgroundPosition = '0 0, 0 12px, 12px -12px, -12px 0';
-    });
-  }
 }
 const stage = document.getElementById('stage');
 
