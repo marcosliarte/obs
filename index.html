@@ -236,10 +236,14 @@
   .win-body { flex: 1; position: relative; overflow: hidden; }
 
   /* placeholder visual da cam/video */
-  .cam-fill, .video-fill, .game-fill {
+  .cam-fill {
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 10px;
     background: transparent;
+  }
+  .video-fill, .game-fill {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
   }
   .fill-icon { font-size: 32px; opacity: 0.25; }
   .fill-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
