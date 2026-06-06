@@ -1,136 +1,127 @@
-# 🎥 Stream Overlay Kit — Minimal
+# Stream Overlay Kit — Minimal
 
-Kit de overlays minimalistas para transmissões ao vivo, prontos para **Twitch (16:9)** e **TikTok (9:16)**. Tudo num único arquivo HTML, sem instalação, sem dependências.
+Kit de overlays minimalistas para transmissões ao vivo, pronto para **Twitch 16:9** e **TikTok 9:16**. Um único arquivo HTML, sem instalação, sem dependências, com painel de controle ao vivo via Supabase.
 
-## ✨ O que vem no kit
+---
 
-**7 cenas**, cada uma nos dois formatos:
+## Cenas disponíveis
 
 | Cena | `scene=` | Descrição |
 |------|----------|-----------|
-| 🎮 Jogo | `game` | Gameplay + webcam + chat |
-| 🎬 React | `react` | Janela de vídeo + webcam + chat, com info de filme/série editável |
-| ▶️ React Livre | `reactfree` | Igual à React, mas sem nome de nada — pra reagir a qualquer coisa (vídeo, tela do PC, site) |
-| 💬 Just Chatting | `chatting` | Câmera grande + chat |
-| ⏳ Começando | `start` | Tela de abertura "Começando já" |
-| ☕ Volto já | `brb` | Tela de pausa |
-| 👋 Fim | `end` | Tela de encerramento |
+| Jogo | `game` | Gameplay + webcam + chat + info de jogo |
+| React | `react` | Janela de vídeo + webcam + chat, título de filme/série editável |
+| React Livre | `reactfree` | Igual ao React, sem título — para qualquer conteúdo |
+| Just Chatting | `chatting` | Câmera grande + chat ao vivo |
+| IRL | `irl` | Câmera full-screen com pin de localização |
+| Começando | `start` | Tela de abertura com ticker e redes sociais |
+| Volto já | `brb` | Tela de pausa com ticker e redes sociais |
+| Fim | `end` | Tela de encerramento com mensagem e redes sociais configuráveis |
 
-**Recursos:**
-- Seletor de cor de destaque ao vivo (6 presets + cor livre)
-- Editor rápido de filme/série na cena React (título, temporada, episódio, nota)
-- 📱 Redes sociais (TikTok, Instagram, YouTube) — ative só as que você usa, com @ editável
-- 🎵 Balão "Tocando agora" do Spotify (opcional, ativável por URL)
-- Botão "copiar link" que monta a URL pronta pro OBS
-- Animações suaves (moldura pulsante, brilho flutuante, ticker, chat com entrada animada)
-- Relógio ao vivo
+Cada cena funciona nos dois formatos (16:9 e 9:16) com layout otimizado.
 
 ---
 
-## 🚀 Como usar (3 opções)
+## Como funciona
 
-### Opção 1 — Vercel (recomendado se você já usa)
+O overlay é uma **moldura transparente** que fica em cima das suas fontes no OBS. Os ícones de câmera/jogo/vídeo são marcadores de posição — você encaixa suas fontes reais embaixo do overlay.
 
-Se você já conectou esse repo na Vercel, ela já gera a URL automaticamente algo como `https://obs-marcosliarte.vercel.app`. Use essa URL no OBS. **Vantagem da Vercel:** atualizações sobem em segundos sem precisar configurar nada.
-
-### Opção 2 — GitHub Pages
-
-1. No GitHub, vá em **Settings → Pages**.
-2. Em "Source", escolha a branch **main** e a pasta **/ (root)**. Salve.
-3. Aguarde 1-2 min. Seu kit ficará disponível em:
-   ```
-   https://marcosliarte.github.io/obs/
-   ```
-
-### Opção 3 — Arquivo local (necessário para usar Spotify)
-
-1. Baixe os arquivos (clone o repo ou Download ZIP).
-2. No OBS: **Fonte → Navegador → Arquivo local** e selecione o `index.html`.
-
-> 💡 Para o **balão do Spotify** funcionar, **precisa** ser via arquivo local — porque o overlay lê um `.txt` do seu PC. Veja COMO-USAR.md.
+As configurações ficam salvas no **Supabase** (nuvem). O OBS faz polling a cada 2,5 s e aplica qualquer mudança feita no painel sem precisar recarregar a cena.
 
 ---
 
-## 🎬 Configurando no OBS
+## Configurando no OBS
 
-Para **cada cena** que quiser usar, crie uma **Cena** no OBS e adicione uma **Fonte de Navegador (Browser Source)**:
+1. Para **cada cena**, adicione uma **Fonte → Navegador (Browser Source)**
+2. Use a URL copiada pelo botão **🔗 Links OBS** no painel
+3. Resolução: `1920 × 1080` (Twitch) ou `1080 × 1920` (TikTok)
+4. Marque **"Atualizar navegador quando a cena ficar ativa"**
+5. Posicione webcam, jogo e vídeo **abaixo** do overlay na lista de fontes
 
-1. **URL** (GitHub Pages) ou **Arquivo local**.
-2. Resolução:
-   - **Twitch:** `1920` × `1080`
-   - **TikTok:** `1080` × `1920`
-3. Marque **"Atualizar navegador quando a cena ficar ativa"**.
-
-### Exemplos de URL (GitHub Pages)
-
-Cena de jogo, Twitch:
+A URL de cada cena tem o formato:
 ```
-https://marcosliarte.github.io/obs/?scene=game&format=landscape&obs=1&color=d6f24b
+https://seu-dominio/?obs=1&scene=game&format=landscape
 ```
-
-React de uma série:
-```
-https://marcosliarte.github.io/obs/?scene=react&format=landscape&obs=1&rtype=series&rtitle=The%20Last%20of%20Us&rseason=2&repisode=5
-```
-
-React livre, TikTok:
-```
-https://marcosliarte.github.io/obs/?scene=reactfree&format=portrait&obs=1
-```
-
-> 💡 Dica: abra o `index.html`, configure a cena no painel do topo, e clique em **"🔗 Copiar link p/ OBS"** — ele monta a URL com tudo pronto.
 
 ---
 
-## 🧩 Parâmetros da URL
+## Painel de controle
+
+Abra o `index.html` no navegador (ou via servidor HTTP) sem os parâmetros `?obs=1`. O painel no topo permite configurar tudo em tempo real:
+
+- **Formato** — Twitch 16:9 ou TikTok 9:16
+- **Cena** — alterna entre as 8 cenas
+- **Cor de destaque** — 6 presets + cor livre (aplicada instantaneamente)
+- **Chat** — selecione a plataforma ativa e preencha os dados de todas as plataformas de uma vez
+- **Spotify** — ative e conecte via OAuth PKCE (sem backend necessário)
+- **Fundo** — transparente, cor sólida, gradiente ou imagem por URL
+- **Estilo** — esconder badge "AO VIVO", bordas totalmente retangulares
+
+---
+
+## Chat
+
+Selecione a plataforma ativa no dropdown e preencha os campos de todas as plataformas que você usa. As configurações persistem — você pode trocar de plataforma a qualquer momento sem redigitar.
+
+| Plataforma | Como funciona |
+|------------|--------------|
+| Twitch | Conexão direta via tmi.js (anônima, só leitura) |
+| Kick | iframe do chat oficial do Kick |
+| YouTube Live | iframe do live chat (precisa do ID do vídeo) |
+| TikTok / URL | iframe de qualquer URL de widget (StreamElements, Streamlabs, etc.) |
+| Simulado | Mensagens fake para preview no painel |
+
+---
+
+## Spotify
+
+Integração via **OAuth PKCE** — sem backend, sem segredos expostos.
+
+**Configurar:**
+1. Crie um app em [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+2. Adicione a URL do painel como **Redirect URI** no app
+3. No painel: cole o **Client ID**, clique **Conectar** e autorize
+4. O balão "Tocando agora" aparece automaticamente quando uma música estiver tocando
+5. A faixa atual é salva no Supabase — o OBS recebe via polling, sem precisar de tokens
+
+---
+
+## Redes sociais
+
+Configure no painel (seção **Redes sociais**) quais plataformas exibir e com qual @. Os badges aparecem:
+
+- Nas cenas **game / react / reactfree / IRL / Just Chatting**: abaixo ou ao lado da webcam
+- Nas cenas **Começando / Volto já / Fim**: centralizados na tela
+
+---
+
+## Fundo no OBS
+
+O overlay usa um canvas para desenhar o fundo e preservar a transparência nas janelas de câmera/jogo/vídeo. Configure em **Fundo**:
+
+- **Transparente** — sem fundo, use a cor de cena do OBS
+- **Cor sólida** — cor preenchida com buraco nas janelas de câmera/jogo
+- **Gradiente** — gradiente linear com ângulo configurável
+- **Imagem (URL)** — imagem cover-fit com buraco nas janelas
+
+---
+
+## Parâmetros da URL (avançado)
 
 | Parâmetro | Valores | Descrição |
 |-----------|---------|-----------|
-| `scene` | `game` `react` `reactfree` `chatting` `start` `brb` `end` | Qual cena |
-| `format` | `landscape` (Twitch) · `portrait` (TikTok) | Formato |
-| `obs` | `1` | **Sempre use no OBS** — esconde o painel e deixa o fundo transparente |
-| `color` | hex sem `#` (ex: `d6f24b`) | Cor de destaque |
-| `rtype` | `movie` · `series` | (React) tipo |
-| `rtitle` | texto | (React) título — espaços viram `%20` |
-| `rseason` | número | (React) temporada (só série) |
-| `repisode` | número | (React) episódio (só série) |
-| `rnote` | texto | (React) nota opcional (ex: "parte 2") |
-| `spotify` | `1` | Mostra balão "Tocando agora" do Spotify (requer Snip — veja COMO-USAR.md) |
-| `s_tiktok` | texto | @ do TikTok (sem `@`) — exibe badge abaixo da webcam |
-| `s_instagram` | texto | @ do Instagram |
-| `s_youtube` | texto | @ do YouTube |
+| `obs` | `1` | Modo OBS — esconde painel, fundo transparente |
+| `scene` | `game` `react` `reactfree` `chatting` `irl` `start` `brb` `end` | Cena |
+| `format` | `landscape` · `portrait` | Formato |
+| `hide_live` | `1` | Esconde o badge "AO VIVO" |
+| `square` | `1` | Remove cantos arredondados |
 
 ---
 
-## 🖼️ Como funciona o overlay
+## Arquivos
 
-Os ícones 📷 🎮 ▶️ são **apenas marcadores de posição**. O overlay é uma **moldura transparente** que fica POR CIMA das suas fontes reais no OBS.
-
-- O overlay desenha bordas, títulos, chat e textos.
-- **Você** posiciona webcam, captura de jogo e vídeo **embaixo** do overlay, encaixando em cada janela.
-- No modo OBS (`obs=1`) o fundo é transparente — só as telas Começando/Volto já/Fim têm fundo escuro próprio (porque cobrem tudo).
-
----
-
-## 💬 Sobre o chat
-
-O chat mostra **mensagens de demonstração** (fake). Para usar o chat real você pode:
-
-- **Widget pronto:** usar StreamElements / Streamlabs como uma fonte de navegador separada, posicionada na área do chat.
-- **Integração direta:** conectar ao chat da Twitch via `tmi.js` (conexão anônima). Veja `COMO-USAR.md` para detalhes.
-
----
-
-## ✏️ Editando textos fixos
-
-O `@seunick` e nomes genéricos como "SEU JOGO" estão dentro do `index.html`. Abra num editor de texto, use Localizar e Substituir (Ctrl+H), troque pelo seu, e salve.
-
----
-
-## 📄 Documentação completa
-
-Veja **[COMO-USAR.md](COMO-USAR.md)** para o guia detalhado passo a passo.
-
----
-
-*Feito para transmissões ao vivo. Sem dependências, sem build, sem complicação.*
+| Arquivo | Descrição |
+|---------|-----------|
+| `index.html` | Overlay completo + painel de controle |
+| `COMO-USAR.md` | Guia detalhado passo a passo |
+| `GUIA-OBS-TWITCH.md` | Configuração específica para Twitch |
+| `teste-supabase.html` | Diagnóstico de conexão com o Supabase |

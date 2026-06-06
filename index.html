@@ -629,10 +629,14 @@
       <option value="tiktok">TikTok (URL widget)</option>
       <option value="url">URL personalizada</option>
     </select>
-    <input type="text" id="twitchChannel" placeholder="canal twitch (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:170px; outline:none; display:none;">
-    <input type="text" id="kickChannel" placeholder="canal kick (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:170px; outline:none; display:none;">
-    <input type="text" id="ytVideoId" placeholder="ID do vídeo YouTube (ex: dQw4w9WgXcQ)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:240px; outline:none; display:none;">
-    <input type="text" id="chatUrl" placeholder="URL do widget (StreamElements, Streamlabs…)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:280px; outline:none; display:none;">
+    <span style="font-size:11px; color:var(--text-dim);">Twitch:</span>
+    <input type="text" id="twitchChannel" placeholder="canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:120px; outline:none;">
+    <span style="font-size:11px; color:var(--text-dim);">Kick:</span>
+    <input type="text" id="kickChannel" placeholder="canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:120px; outline:none;">
+    <span style="font-size:11px; color:var(--text-dim);">YouTube:</span>
+    <input type="text" id="ytVideoId" placeholder="ID do vídeo" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:140px; outline:none;">
+    <span style="font-size:11px; color:var(--text-dim);">TikTok/URL:</span>
+    <input type="text" id="chatUrl" placeholder="URL do widget" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:180px; outline:none;">
   </div>
 
   <div class="ctrl-group">
@@ -1101,10 +1105,11 @@ async function spFetchFile(){
   if(SP.testMode) return;
   try {
     const r = await fetch('now-playing.txt?t=' + Date.now(), { cache: 'no-store' });
-    if(!r.ok){ SP.current = null; renderSpotifyPill(); return; }
+    if(!r.ok){ SP.current = null; renderSpotifyPill(); if(!isOBS) saveToStorage(); return; }
     SP.current = parseNowPlaying(await r.text());
     renderSpotifyPill();
-  } catch(e){ SP.current = null; renderSpotifyPill(); }
+    if(!isOBS) saveToStorage();
+  } catch(e){ SP.current = null; renderSpotifyPill(); if(!isOBS) saveToStorage(); }
 }
 
 /* ---- SPOTIFY PKCE API ---- */
@@ -1210,6 +1215,7 @@ async function spFetchCurrentTrack(){
     const d = await r.json();
     SP.current = (d.is_playing && d.item) ? { title:d.item.name, artist:d.item.artists.map(a=>a.name).join(', ') } : null;
     renderSpotifyPill();
+    if(!isOBS) saveToStorage();
   } catch(e){ spFetchFile(); }
 }
 
@@ -1302,10 +1308,27 @@ function renderSpotifyPill(){
       }
     }
   } else {
-    // garante que volte pro stage quando voltar pra landscape
-    if (pill.parentNode !== stageEl) {
-      pill.remove();
-      stageEl.appendChild(pill);
+    // LANDSCAPE
+    if (state.scene === 'chatting') {
+      // Just Chatting: põe Spotify dentro da cam no canto inferior esquerdo
+      const camWindows = stageEl.querySelectorAll('.win');
+      let camWin = null;
+      for (const w of camWindows){ if (w.querySelector('.cam-fill')){ camWin = w; break; } }
+      if (camWin) {
+        const camBody = camWin.querySelector('.win-body') || camWin;
+        if (pill.parentNode !== camBody) { pill.remove(); camBody.appendChild(pill); }
+        pill.style.top = '';
+        pill.style.bottom = '14px';
+        pill.style.left = '14px';
+        pill.style.right = '';
+        pill.style.maxWidth = '300px';
+      }
+    } else {
+      // garante que volte pro stage quando voltar pra outra cena
+      if (pill.parentNode !== stageEl) {
+        pill.remove();
+        stageEl.appendChild(pill);
+      }
     }
   }
 }
@@ -1405,7 +1428,7 @@ function applyConfig(d, keepSceneFormat) {
   if (d.gameState)  Object.assign(gameState, d.gameState);
   if (d.irlState)   Object.assign(irlState, d.irlState);
   if (d.social)     Object.assign(social, d.social);
-  if (d.SP)         { SP.enabled = !!d.SP.enabled; if(d.SP.clientId) SP.clientId = d.SP.clientId; }
+  if (d.SP)         { SP.enabled = !!d.SP.enabled; if(d.SP.clientId) SP.clientId = d.SP.clientId; if('current' in d.SP) SP.current = d.SP.current; }
   if (d.endState)   Object.assign(endState, d.endState);
   if (d.CHAT)       Object.assign(CHAT, d.CHAT);
   if (d.TWITCH && d.TWITCH.channel) TWITCH.channel = d.TWITCH.channel;
@@ -1423,7 +1446,7 @@ function buildConfig() {
     gameState,
     irlState,
     social,
-    SP: { enabled: SP.enabled, clientId: SP.clientId },
+    SP: { enabled: SP.enabled, clientId: SP.clientId, current: SP.current },
     endState,
     CHAT,
     TWITCH: { channel: TWITCH.channel },
@@ -1990,21 +2013,8 @@ document.getElementById('twitchChannel').addEventListener('change', e=>{
 });
 
 /* ----- MODO DE CHAT HANDLERS ----- */
-function updateChatFieldsVisibility(){
-  document.getElementById('twitchChannel').style.display = (CHAT.mode==='twitch') ? '' : 'none';
-  document.getElementById('kickChannel').style.display   = (CHAT.mode==='kick') ? '' : 'none';
-  document.getElementById('ytVideoId').style.display     = (CHAT.mode==='youtube') ? '' : 'none';
-  document.getElementById('chatUrl').style.display       = (CHAT.mode==='url'||CHAT.mode==='tiktok') ? '' : 'none';
-  // atualiza placeholder para TikTok
-  const urlInput = document.getElementById('chatUrl');
-  urlInput.placeholder = CHAT.mode === 'tiktok'
-    ? 'URL do widget TikTok (StreamElements, Streamlabs…)'
-    : 'URL do widget (StreamElements, Streamlabs…)';
-}
-
 document.getElementById('chatMode').addEventListener('change', e=>{
   CHAT.mode = e.target.value;
-  updateChatFieldsVisibility();
   if (CHAT.mode !== 'twitch' && TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} TWITCH.client = null; }
   render();
 });
@@ -2178,7 +2188,6 @@ function syncUI() {
   document.getElementById('kickChannel').value   = CHAT.kickChannel || '';
   document.getElementById('ytVideoId').value     = CHAT.ytVideoId || '';
   document.getElementById('chatUrl').value       = CHAT.url || '';
-  updateChatFieldsVisibility();
   document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
   document.getElementById('squareToggle').checked   = document.body.classList.contains('square');
   document.getElementById('spotifyClientId').value = SP.clientId || '';
