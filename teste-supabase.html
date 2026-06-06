@@ -55,7 +55,7 @@ async function testLoad() {
   clear();
   log('Carregando do Supabase...');
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=*&t=${Date.now()}`, { headers: headers(), cache: 'no-store' });
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=*`, { headers: headers(), cache: 'no-store' });
     log('Status: ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err');
     const txt = await r.text();
     log('Resposta:');
@@ -116,7 +116,7 @@ async function testFull() {
     log('   Escrita status: ' + rw.status, rw.ok ? 'ok' : 'err');
 
     log('2) Lendo de volta...');
-    const rr = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config&t=${Date.now()}`, { headers: headers(), cache: 'no-store' });
+    const rr = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config`, { headers: headers(), cache: 'no-store' });
     const data = await rr.json();
     log('   Leitura: ' + JSON.stringify(data));
     const lida = data && data[0] && data[0].config && data[0].config.marca;

@@ -1085,7 +1085,7 @@ function renderSpotifyPill(){
    Settings → API no painel do Supabase.
 ========================================================================= */
 const SUPABASE_URL  = 'https://lzfkwdirmwcuwgrgiguq.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6Zmt3ZGlybXdjdXdncmdpZ3VxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2OTU0NDAsImV4cCI6MjA5NjI3MTQ0MH0.jWeQwakakE8lcDCQVZ8L-XuXaEEPdYIMIcfTHUAlzAY';
+const SUPABASE_KEY  = 'sb_publishable_PeRkBtbqIR4XK5jvkrVz_g_MVVVWYPQ';
 const OVERLAY_ID    = 'default';                   // ID do overlay (pode ter vários)
 const POLL_INTERVAL = 2500;                        // ms — OBS verifica mudanças nesse intervalo
 
@@ -1144,9 +1144,9 @@ async function sbSave(data) {
 
 async function sbLoad() {
   try {
-    /* cache:no-store + timestamp evita o OBS (Chromium) ler resposta cacheada */
+    /* cache:no-store evita o OBS (Chromium) ler resposta cacheada */
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config&t=${Date.now()}`,
+      `${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config`,
       { headers: sbHeaders(), cache: 'no-store' }
     );
     if (!r.ok) { sbSetStatus(false, 'Erro ao carregar'); return null; }
