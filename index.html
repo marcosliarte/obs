@@ -103,7 +103,6 @@
     position: relative; background: transparent;
     overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
     border: 1px solid rgba(255,255,255,0.06);
-    isolation: isolate;
   }
   .stage.landscape { width: min(1100px, 95vw); aspect-ratio: 16 / 9; }
   .stage.portrait  { width: min(420px, 90vw); aspect-ratio: 9 / 16; }
@@ -265,13 +264,6 @@
   body.obs .win-body { background: transparent !important; }
   body.obs { background: transparent !important; }
   html.obs { background: transparent !important; }
-  /* Buracos: cam/game/video win-body apagam o fundo do stage — OBS source passa por baixo */
-  body.obs .win:has(.cam-fill) .win-body,
-  body.obs .win:has(.game-fill) .win-body,
-  body.obs .win:has(.video-fill) .win-body {
-    mix-blend-mode: destination-out;
-    background: white !important;
-  }
   /* opção: esconder badge "AO VIVO/LIVE" via ?hide_live=1 */
   body.obs.hide-live .live-badge { display: none !important; }
   /* opção: deixar TUDO retangular (sem cantos redondos da facecam) via ?square=1 */
@@ -783,34 +775,109 @@ const bg = {
   imageUrl: ''
 };
 
+let _bgImg = null;
+
 function applyBackground(){
   const stageEl = document.getElementById('stage');
   if(!stageEl) return;
-  if (bg.type === 'solid') {
-    stageEl.style.backgroundColor = bg.color1;
-    stageEl.style.backgroundImage = 'none';
-    stageEl.style.backgroundSize = '';
-    stageEl.style.backgroundPosition = '';
-    stageEl.style.backgroundRepeat = '';
-  } else if (bg.type === 'gradient') {
-    stageEl.style.backgroundColor = '';
-    stageEl.style.backgroundImage = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
-    stageEl.style.backgroundSize = '';
-    stageEl.style.backgroundPosition = '';
-    stageEl.style.backgroundRepeat = '';
-  } else if (bg.type === 'image' && bg.imageUrl) {
-    stageEl.style.backgroundColor = '';
-    stageEl.style.backgroundImage = `url("${bg.imageUrl.replace(/"/g,'%22')}")`;
-    stageEl.style.backgroundSize = 'cover';
-    stageEl.style.backgroundPosition = 'center';
-    stageEl.style.backgroundRepeat = 'no-repeat';
-  } else {
-    stageEl.style.backgroundColor = 'transparent';
-    stageEl.style.backgroundImage = 'none';
-    stageEl.style.backgroundSize = '';
-    stageEl.style.backgroundPosition = '';
-    stageEl.style.backgroundRepeat = '';
+
+  // PAINEL: CSS puro no stage (sem canvas)
+  if (!isOBS) {
+    const c = document.getElementById('bgCanvas');
+    if (c) c.remove();
+    if (bg.type === 'solid') {
+      stageEl.style.backgroundColor = bg.color1;
+      stageEl.style.backgroundImage = 'none';
+      stageEl.style.backgroundSize = stageEl.style.backgroundPosition = stageEl.style.backgroundRepeat = '';
+    } else if (bg.type === 'gradient') {
+      stageEl.style.backgroundColor = '';
+      stageEl.style.backgroundImage = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
+      stageEl.style.backgroundSize = stageEl.style.backgroundPosition = stageEl.style.backgroundRepeat = '';
+    } else if (bg.type === 'image' && bg.imageUrl) {
+      stageEl.style.backgroundColor = '';
+      stageEl.style.backgroundImage = `url("${bg.imageUrl.replace(/"/g,'%22')}")`;
+      stageEl.style.backgroundSize = 'cover';
+      stageEl.style.backgroundPosition = 'center';
+      stageEl.style.backgroundRepeat = 'no-repeat';
+    } else {
+      stageEl.style.backgroundColor = 'transparent';
+      stageEl.style.backgroundImage = 'none';
+      stageEl.style.backgroundSize = stageEl.style.backgroundPosition = stageEl.style.backgroundRepeat = '';
+    }
+    return;
   }
+
+  // OBS: canvas com buracos alpha=0 nas janelas de cam/game/react
+  stageEl.style.backgroundColor = 'transparent';
+  stageEl.style.backgroundImage = 'none';
+
+  if (bg.type === 'none') {
+    const c = document.getElementById('bgCanvas');
+    if (c) c.remove();
+    return;
+  }
+
+  let canvas = document.getElementById('bgCanvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'bgCanvas';
+    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+    stageEl.insertBefore(canvas, stageEl.firstChild);
+  }
+
+  const w = stageEl.offsetWidth, h = stageEl.offsetHeight;
+  if (!w || !h) return;
+  canvas.width = w; canvas.height = h;
+
+  if (bg.type === 'image' && bg.imageUrl) {
+    const url = bg.imageUrl;
+    if (_bgImg && _bgImg._url === url) {
+      _paintCanvas(canvas, stageEl, w, h, _bgImg);
+    } else {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img._url = url;
+      img.onload = () => { _bgImg = img; _paintCanvas(canvas, stageEl, w, h, img); };
+      img.src = url;
+    }
+  } else {
+    _paintCanvas(canvas, stageEl, w, h, null);
+  }
+}
+
+function _paintCanvas(canvas, stageEl, w, h, img) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  if (img) {
+    const s = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    ctx.drawImage(img, (w - img.naturalWidth*s)/2, (h - img.naturalHeight*s)/2, img.naturalWidth*s, img.naturalHeight*s);
+  } else if (bg.type === 'solid') {
+    ctx.fillStyle = bg.color1;
+    ctx.fillRect(0, 0, w, h);
+  } else if (bg.type === 'gradient') {
+    const rad = bg.angle * Math.PI / 180;
+    const len = Math.sqrt(w*w + h*h);
+    const cx = w/2, cy = h/2, dx = Math.sin(rad), dy = -Math.cos(rad);
+    const grad = ctx.createLinearGradient(cx - len*dx, cy - len*dy, cx + len*dx, cy + len*dy);
+    grad.addColorStop(0, bg.color1);
+    grad.addColorStop(1, bg.color2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Buracos alpha=0 para as janelas de cam/game/react
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = '#fff';
+  const sr = stageEl.getBoundingClientRect();
+  stageEl.querySelectorAll('.win').forEach(win => {
+    if (!win.querySelector('.cam-fill, .game-fill, .video-fill')) return;
+    const wb = win.querySelector('.win-body');
+    if (!wb) return;
+    const r = wb.getBoundingClientRect();
+    ctx.fillRect(Math.round(r.left - sr.left), Math.round(r.top - sr.top), Math.round(r.width), Math.round(r.height));
+  });
+  ctx.globalCompositeOperation = 'source-over';
 }
 const stage = document.getElementById('stage');
 
@@ -1275,6 +1342,7 @@ const isOBS = params.get('obs') === '1';
 const _renderBase = render;
 render = function() {
   _renderBase();
+  applyBackground();
   if (!isOBS) saveToStorage();
 };
 
