@@ -198,17 +198,19 @@
 
 
   /* PORTRAIT (TikTok): fontes maiores pra legibilidade no celular */
-  .stage.portrait .win-title { font-size: 13px; letter-spacing: 0.08em; }
-  .stage.portrait .win-tag   { font-size: 12px; }
-  .stage.portrait .win-bar   { padding: 11px 16px; }
-  .stage.portrait .fill-label { font-size: 13px; }
-  .stage.portrait .live-badge { font-size: 11px; padding: 6px 12px; }
-  .stage.portrait .info-strip { padding: 11px 16px; gap: 12px; }
-  .stage.portrait .info-strip .label { font-size: 14px; }
-  .stage.portrait .info-strip .pill  { font-size: 11px; padding: 4px 10px; }
-  .stage.portrait .cmsg-user { font-size: 13px; }
-  .stage.portrait .cmsg-text { font-size: 13px; line-height: 1.45; }
-  .stage.portrait .cmsg { padding: 6px 12px 6px 10px; gap: 2px; }
+  .stage.portrait .win-title  { font-size: 15px; letter-spacing: 0.08em; }
+  .stage.portrait .win-tag    { font-size: 13px; }
+  .stage.portrait .win-bar    { padding: 12px 16px; }
+  .stage.portrait .fill-label { font-size: 14px; }
+  .stage.portrait .live-badge { font-size: 13px; padding: 7px 14px; gap: 7px; }
+  .stage.portrait .info-strip { padding: 12px 18px; gap: 14px; }
+  .stage.portrait .info-strip .label { font-size: 16px; }
+  .stage.portrait .info-strip .pill  { font-size: 13px; padding: 5px 12px; }
+  .stage.portrait .cmsg-user  { font-size: 15px; }
+  .stage.portrait .cmsg-text  { font-size: 15px; line-height: 1.45; }
+  .stage.portrait .cmsg       { padding: 7px 14px 7px 12px; gap: 3px; }
+  .stage.portrait .fs-kicker  { font-size: 15px; }
+  .stage.portrait .fs-sub     { font-size: 17px; }
   @keyframes framePulse {
     0%, 100% { opacity: 0.78; }
     50% { opacity: 1; }
@@ -405,9 +407,9 @@
   /* Spotify pill maior no PORTRAIT pra legibilidade no celular */
   .stage.portrait .spotify-pill { padding: 10px 18px 10px 10px; gap: 12px; }
   .stage.portrait .sp-cover { width: 44px; height: 44px; }
-  .stage.portrait .sp-kicker { font-size: 11px; }
-  .stage.portrait .sp-title  { font-size: 14px; max-width: 180px; }
-  .stage.portrait .sp-artist { font-size: 13px; max-width: 150px; }
+  .stage.portrait .sp-kicker { font-size: 12px; }
+  .stage.portrait .sp-title  { font-size: 16px; max-width: 200px; }
+  .stage.portrait .sp-artist { font-size: 14px; max-width: 170px; }
 
   /* ===================== IRL: PIN DE LOCALIZAÇÃO ===================== */
   .irl-location {
@@ -776,6 +778,13 @@ const bg = {
 function applyBackground(){
   const stageEl = document.getElementById('stage');
   if(!stageEl) return;
+  // No OBS, o stage SEMPRE transparente — as sources reais (webcam, game) só aparecem
+  // onde o pixel HTML é alpha=0. O fundo é aplicado apenas no painel de preview.
+  if (isOBS) {
+    stageEl.style.backgroundColor = 'transparent';
+    stageEl.style.backgroundImage = 'none';
+    return;
+  }
   if (bg.type === 'solid') {
     stageEl.style.backgroundColor = bg.color1;
     stageEl.style.backgroundImage = 'none';
