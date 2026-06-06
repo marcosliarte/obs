@@ -1189,17 +1189,20 @@ async function loadFromStorage() {
   return applyConfig(d);
 }
 
-/* Sobrescreve render() para salvar automaticamente após cada mudança */
-const _renderBase = render;
-render = function() { _renderBase(); saveToStorage(); };
-
 /* =========================================================================
    URL PARAMS — modo OBS (?obs=1) e compatibilidade com links antigos
-   No modo normal (painel), os params da URL são IGNORADOS — usa localStorage.
-   No modo OBS (?obs=1), os params da URL são usados normalmente.
+   No modo normal (painel), os params da URL são IGNORADOS — usa Supabase.
+   No modo OBS (?obs=1), scene/format vêm da URL; o resto vem do Supabase.
 ========================================================================= */
 const params = new URLSearchParams(location.search);
 const isOBS = params.get('obs') === '1';
+
+/* Sobrescreve render() para salvar automaticamente após cada mudança (só no painel) */
+const _renderBase = render;
+render = function() {
+  _renderBase();
+  if (!isOBS) saveToStorage();
+};
 
 if (isOBS) {
   /* Modo OBS: lê params da URL como antes (compatibilidade total) */
@@ -1954,13 +1957,26 @@ if (isOBS) {
   setInterval(async () => {
     const d = await sbLoad();
     if (!d) return;
-    /* ignora scene/format do Supabase — a cena é definida pelo link da URL */
-    const comparable = JSON.stringify(d);
-    if (comparable === _lastConfigStr) return;
+    /* Compara só os campos que o painel controla — ignora scene/format
+       pra não fazer loop infinito (OBS tem scene/format diferente do painel) */
+    const comparable = JSON.stringify({
+      color:      d.state && d.state.color,
+      reactState: d.reactState,
+      gameState:  d.gameState,
+      irlState:   d.irlState,
+      social:     d.social,
+      SP:         d.SP,
+      CHAT:       d.CHAT,
+      TWITCH:     d.TWITCH,
+      bg:         d.bg,
+      hideLive:   d.hideLive,
+      square:     d.square,
+    });
+    if (comparable === _lastConfigStr) return; // nada mudou
     _lastConfigStr = comparable;
     applyConfig(d, true); /* keepSceneFormat=true: mantém scene/format da URL */
     applyColor(state.color);
-    _renderBase();
+    _renderBase(); /* re-renderiza sem salvar */
   }, POLL_INTERVAL);
 }
 </script>
