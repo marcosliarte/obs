@@ -270,6 +270,10 @@
   body.obs .win-body { background: transparent !important; }
   body.obs { background: transparent !important; }
   html.obs { background: transparent !important; }
+  /* fundo de cor/imagem fica transparente no OBS — o "buraco" da webcam/jogo
+     deve deixar a fonte do OBS aparecer por baixo. Se quiser fundo, adicione
+     como uma fonte separada no OBS abaixo do overlay. */
+  body.obs .bg-layer { display: none !important; }
   body.obs .chat-stream::before { display: none !important; }
   /* opção: esconder badge "AO VIVO/LIVE" via ?hide_live=1 */
   body.obs.hide-live .live-badge { display: none !important; }
@@ -616,6 +620,7 @@
   <div class="ctrl-group">
     <span class="ctrl-label">Chat</span>
     <select id="chatMode" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; outline:none; cursor:pointer;">
+      <option value="none">Nenhum (vazio)</option>
       <option value="test">Teste (fake)</option>
       <option value="twitch">Twitch (nome do canal)</option>
       <option value="url">URL externa (widget)</option>
@@ -647,11 +652,15 @@
     <input type="text" id="bgImg" placeholder="URL da imagem (https://...)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:220px; outline:none; display:none;">
   </div>
 
-  <button class="copy-link-main" id="copyLinkMain" style="margin-left:auto;">🔗 Copiar link p/ OBS</button>
+  <div id="sbStatus" style="margin-left:auto; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim);">
+    <span id="sbDot" style="width:8px;height:8px;border-radius:50%;background:#8a8a92;display:inline-block;flex-shrink:0;"></span>
+    <span id="sbMsg">Conectando...</span>
+  </div>
+  <button class="copy-link-main" id="copyLinkMain">🔗 Copiar link p/ OBS</button>
 </div>
 
 <div class="hint-bar">
-  <b>OBS:</b> abra uma cena por vez. Adicione como <b>Browser Source</b> → marque "Local file" para arquivo no PC, ou cole a URL da Vercel. Use <b>1920×1080</b> (Twitch) ou <b>1080×1920</b> (TikTok). Coloque sua webcam/jogo <b>ABAIXO</b> do overlay na lista de fontes.
+  <b>OBS:</b> As configurações são <b>salvas automaticamente</b>. Adicione como <b>Browser Source</b>. Use <b>1920×1080</b> (Twitch) ou <b>1080×1920</b> (TikTok). Webcam/jogo/fundo de cor ficam como fontes <b>abaixo</b> do overlay na lista do OBS — o overlay mantém os buracos transparentes.
 </div>
 
 <!-- ===================== EDITOR DA CENA REACT ===================== -->
@@ -1042,41 +1051,155 @@ function renderSpotifyPill(){
   }
 }
 
-/* aplica params da URL (modo OBS) */
-const params = new URLSearchParams(location.search);
-if (params.get('format')) state.format = params.get('format');
-if (params.get('scene')) state.scene = params.get('scene');
-if (params.get('color')) state.color = '#' + params.get('color').replace('#','');
-if (params.get('rtype')) reactState.type = params.get('rtype');
-if (params.get('rtitle')) reactState.title = params.get('rtitle');
-if (params.get('rseason')) reactState.season = params.get('rseason');
-if (params.get('repisode')) reactState.episode = params.get('repisode');
-if (params.get('rnote')) reactState.note = params.get('rnote');
-if (params.get('irl_loc')) irlState.location = params.get('irl_loc');
-if (params.get('irl_kicker')) irlState.kicker = params.get('irl_kicker');
-if (params.get('spotify') === '1') SP.enabled = true;
-/* redes sociais via URL */
-['tiktok','instagram','youtube'].forEach(k=>{
-  if (params.get('s_' + k)) {
-    social[k].on = true;
-    social[k].handle = params.get('s_' + k);
+/* =========================================================================
+   SUPABASE — persistência em nuvem
+   Troque as duas constantes abaixo pelas suas credenciais.
+   Settings → API no painel do Supabase.
+========================================================================= */
+const SUPABASE_URL  = 'https://lzfkwdirmwcuwgrgiguq.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_PeRkBtbqIR4XK5jvkrVz_g_MVVVWYPQ';
+const OVERLAY_ID    = 'default';                   // ID do overlay (pode ter vários)
+const POLL_INTERVAL = 2500;                        // ms — OBS verifica mudanças nesse intervalo
+
+/* --- helpers de fetch para a REST API do Supabase --- */
+function sbHeaders(extra) {
+  return Object.assign({
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Prefer': 'resolution=merge-duplicates'
+  }, extra || {});
+}
+
+function sbSetStatus(ok, msg) {
+  const dot = document.getElementById('sbDot');
+  const txt = document.getElementById('sbMsg');
+  if (!dot || !txt) return;
+  dot.style.background = ok ? '#34d399' : ok === null ? '#f59e0b' : '#f87171';
+  txt.textContent = msg;
+}
+
+async function sbSave(data) {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ id: OVERLAY_ID, config: data, updated_at: new Date().toISOString() })
+    });
+    if (r.ok) sbSetStatus(true, 'Salvo ✓');
+    else sbSetStatus(false, 'Erro ao salvar');
+  } catch(e) {
+    sbSetStatus(false, 'Sem conexão');
+    console.warn('[Supabase] falha ao salvar:', e);
   }
-});
-if (params.get('obs') === '1') {
+}
+
+async function sbLoad() {
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config`,
+      { headers: sbHeaders() }
+    );
+    if (!r.ok) { sbSetStatus(false, 'Erro ao carregar'); return null; }
+    const rows = await r.json();
+    sbSetStatus(true, 'Conectado ✓');
+    if (rows && rows[0] && rows[0].config) return rows[0].config;
+  } catch(e) {
+    sbSetStatus(false, 'Sem conexão');
+    console.warn('[Supabase] falha ao carregar:', e);
+  }
+  return null;
+}
+
+/* --- aplica um objeto de config nos estados globais --- */
+function applyConfig(d) {
+  if (!d) return false;
+  if (d.state)      Object.assign(state, d.state);
+  if (d.reactState) Object.assign(reactState, d.reactState);
+  if (d.irlState)   Object.assign(irlState, d.irlState);
+  if (d.social)     Object.assign(social, d.social);
+  if (d.SP)         SP.enabled = !!d.SP.enabled;
+  if (d.CHAT)       Object.assign(CHAT, d.CHAT);
+  if (d.TWITCH && d.TWITCH.channel) TWITCH.channel = d.TWITCH.channel;
+  if (d.bg)         Object.assign(bg, d.bg);
+  document.body.classList.toggle('hide-live', !!d.hideLive);
+  document.body.classList.toggle('square',    !!d.square);
+  return true;
+}
+
+/* --- monta o objeto de config atual --- */
+function buildConfig() {
+  return {
+    state,
+    reactState,
+    irlState,
+    social,
+    SP: { enabled: SP.enabled },
+    CHAT,
+    TWITCH: { channel: TWITCH.channel },
+    bg,
+    hideLive: document.body.classList.contains('hide-live'),
+    square:   document.body.classList.contains('square'),
+  };
+}
+
+/* --- debounce para não spammar o Supabase a cada tecla --- */
+let _saveTimer = null;
+function saveToStorage() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => sbSave(buildConfig()), 600);
+}
+
+/* --- carrega do Supabase (assíncrono, usado no init) --- */
+async function loadFromStorage() {
+  const d = await sbLoad();
+  return applyConfig(d);
+}
+
+/* Sobrescreve render() para salvar automaticamente após cada mudança */
+const _renderBase = render;
+render = function() { _renderBase(); saveToStorage(); };
+
+/* =========================================================================
+   URL PARAMS — modo OBS (?obs=1) e compatibilidade com links antigos
+   No modo normal (painel), os params da URL são IGNORADOS — usa localStorage.
+   No modo OBS (?obs=1), os params da URL são usados normalmente.
+========================================================================= */
+const params = new URLSearchParams(location.search);
+const isOBS = params.get('obs') === '1';
+
+if (isOBS) {
+  /* Modo OBS: lê params da URL como antes (compatibilidade total) */
+  if (params.get('format')) state.format = params.get('format');
+  if (params.get('scene'))  state.scene  = params.get('scene');
+  if (params.get('color'))  state.color  = '#' + params.get('color').replace('#','');
+  if (params.get('rtype'))   reactState.type    = params.get('rtype');
+  if (params.get('rtitle'))  reactState.title   = params.get('rtitle');
+  if (params.get('rseason')) reactState.season  = params.get('rseason');
+  if (params.get('repisode'))reactState.episode = params.get('repisode');
+  if (params.get('rnote'))   reactState.note    = params.get('rnote');
+  if (params.get('irl_loc'))    irlState.location = params.get('irl_loc');
+  if (params.get('irl_kicker')) irlState.kicker   = params.get('irl_kicker');
+  if (params.get('spotify') === '1') SP.enabled = true;
+  ['tiktok','instagram','youtube'].forEach(k=>{
+    if (params.get('s_' + k)) { social[k].on = true; social[k].handle = params.get('s_' + k); }
+  });
   document.body.classList.add('obs');
   document.documentElement.classList.add('obs');
+  if (params.get('hide_live') === '1') document.body.classList.add('hide-live');
+  if (params.get('square')    === '1') document.body.classList.add('square');
+  if (params.get('twitch'))   { TWITCH.channel = params.get('twitch').toLowerCase(); CHAT.mode = 'twitch'; }
+  if (params.get('chat_url')) { CHAT.url = decodeURIComponent(params.get('chat_url')); CHAT.mode = 'url'; }
+  if (params.get('chat'))     { CHAT.mode = params.get('chat'); }
+  if (params.get('bg'))       { bg.type = params.get('bg'); }
+  if (params.get('bg_color')) { bg.color1 = '#' + params.get('bg_color').replace('#',''); }
+  if (params.get('bg_color2')){ bg.color2 = '#' + params.get('bg_color2').replace('#',''); }
+  if (params.get('bg_angle')) { bg.angle  = parseInt(params.get('bg_angle')) || 135; }
+  if (params.get('bg_img'))   { bg.imageUrl = decodeURIComponent(params.get('bg_img')); }
+} else {
+  /* Modo painel: carrega do localStorage */
+  loadFromStorage();
 }
-if (params.get('hide_live') === '1') document.body.classList.add('hide-live');
-if (params.get('square') === '1') document.body.classList.add('square');
-if (params.get('twitch')) { TWITCH.channel = params.get('twitch').toLowerCase(); CHAT.mode = 'twitch'; }
-if (params.get('chat_url')) { CHAT.url = decodeURIComponent(params.get('chat_url')); CHAT.mode = 'url'; }
-if (params.get('chat')) CHAT.mode = params.get('chat'); // força modo: test|twitch|url
-/* fundo via URL */
-if (params.get('bg')) bg.type = params.get('bg');           // solid | gradient | image
-if (params.get('bg_color')) bg.color1 = '#' + params.get('bg_color').replace('#','');
-if (params.get('bg_color2')) bg.color2 = '#' + params.get('bg_color2').replace('#','');
-if (params.get('bg_angle')) bg.angle = parseInt(params.get('bg_angle')) || 135;
-if (params.get('bg_img')) { bg.imageUrl = decodeURIComponent(params.get('bg_img')); }
 
 /* =========================================================================
    COR DE DESTAQUE
@@ -1158,6 +1281,9 @@ async function connectTwitchChat(channelName){
 let chatTimers = [];
 function startChat(container, max=10){
   TWITCH.maxMsgs = max;
+
+  // MODO NENHUM: sem chat — deixa a janela vazia/transparente
+  if (CHAT.mode === 'none') return;
 
   // MODO URL: incorpora widget externo via iframe dentro da janela de chat
   if (CHAT.mode === 'url' && CHAT.url){
@@ -1512,40 +1638,11 @@ document.getElementById('reactNote').addEventListener('input', e=>{ reactState.n
 
 /* ----- MONTAR E COPIAR LINK DA CENA P/ OBS ----- */
 function buildSceneURL(){
+  /* Link fixo — as configurações são lidas do localStorage pelo OBS automaticamente.
+     Só passa ?obs=1 para ativar o modo overlay. */
   const base = location.href.split('?')[0];
   const p = new URLSearchParams();
-  p.set('scene', state.scene);
-  p.set('format', state.format);
   p.set('obs', '1');
-  p.set('color', state.color.replace('#',''));
-  if(state.scene==='react'){
-    p.set('rtype', reactState.type);
-    if(reactState.title) p.set('rtitle', reactState.title);
-    if(reactState.type==='series'){
-      p.set('rseason', reactState.season);
-      p.set('repisode', reactState.episode);
-    }
-    if(reactState.note) p.set('rnote', reactState.note);
-  }
-  if(state.scene==='irl'){
-    if(irlState.location) p.set('irl_loc', irlState.location);
-    if(irlState.kicker && irlState.kicker !== 'EXPLORANDO') p.set('irl_kicker', irlState.kicker);
-  }
-  if(SP.enabled) p.set('spotify', '1');
-  if(CHAT.mode === 'twitch' && TWITCH.channel) p.set('twitch', TWITCH.channel);
-  if(CHAT.mode === 'url' && CHAT.url) p.set('chat_url', encodeURIComponent(CHAT.url));
-  if(CHAT.mode === 'test') p.set('chat', 'test');
-  if(document.body.classList.contains('hide-live')) p.set('hide_live', '1');
-  if(document.body.classList.contains('square')) p.set('square', '1');
-  if(bg.type !== 'none'){
-    p.set('bg', bg.type);
-    if(bg.type==='solid' || bg.type==='gradient') p.set('bg_color', bg.color1.replace('#',''));
-    if(bg.type==='gradient'){ p.set('bg_color2', bg.color2.replace('#','')); p.set('bg_angle', String(bg.angle)); }
-    if(bg.type==='image' && bg.imageUrl) p.set('bg_img', encodeURIComponent(bg.imageUrl));
-  }
-  ['tiktok','instagram','youtube'].forEach(k=>{
-    if(social[k].on && social[k].handle.trim()) p.set('s_' + k, social[k].handle.trim());
-  });
   return base + '?' + p.toString();
 }
 function copyToClipboard(text, btn){
@@ -1617,6 +1714,7 @@ function updateChatFieldsVisibility(){
   document.getElementById('twitchChannel').style.display = (CHAT.mode==='twitch') ? '' : 'none';
   document.getElementById('chatUrl').style.display = (CHAT.mode==='url') ? '' : 'none';
 }
+
 document.getElementById('chatMode').addEventListener('change', e=>{
   CHAT.mode = e.target.value;
   updateChatFieldsVisibility();
@@ -1632,9 +1730,11 @@ document.getElementById('chatUrl').addEventListener('change', e=>{
 /* ----- ESTILO HANDLERS ----- */
 document.getElementById('hideLiveToggle').addEventListener('change', e=>{
   document.body.classList.toggle('hide-live', e.target.checked);
+  saveToStorage();
 });
 document.getElementById('squareToggle').addEventListener('change', e=>{
   document.body.classList.toggle('square', e.target.checked);
+  saveToStorage();
 });
 
 /* ----- FUNDO HANDLERS ----- */
@@ -1648,19 +1748,20 @@ document.getElementById('bgType').addEventListener('change', e=>{
   bg.type = e.target.value;
   updateBgFieldsVisibility();
   applyBackground();
+  saveToStorage();
 });
-document.getElementById('bgColor1').addEventListener('input', e=>{ bg.color1 = e.target.value; applyBackground(); });
-document.getElementById('bgColor2').addEventListener('input', e=>{ bg.color2 = e.target.value; applyBackground(); });
-document.getElementById('bgImg').addEventListener('input', e=>{ bg.imageUrl = e.target.value.trim(); applyBackground(); });
+document.getElementById('bgColor1').addEventListener('input', e=>{ bg.color1 = e.target.value; applyBackground(); saveToStorage(); });
+document.getElementById('bgColor2').addEventListener('input', e=>{ bg.color2 = e.target.value; applyBackground(); saveToStorage(); });
+document.getElementById('bgImg').addEventListener('input', e=>{ bg.imageUrl = e.target.value.trim(); applyBackground(); saveToStorage(); });
 
 /* ----- IRL HANDLERS ----- */
 document.getElementById('irlLocation').addEventListener('input', e=>{
   irlState.location = e.target.value;
-  if(state.scene==='irl') render();
+  if(state.scene==='irl') render(); else saveToStorage();
 });
 document.getElementById('irlKicker').addEventListener('input', e=>{
   irlState.kicker = e.target.value.toUpperCase();
-  if(state.scene==='irl') render();
+  if(state.scene==='irl') render(); else saveToStorage();
 });
 document.getElementById('colorDots').addEventListener('click', e=>{
   if(e.target.dataset.color){
@@ -1668,11 +1769,13 @@ document.getElementById('colorDots').addEventListener('click', e=>{
     e.target.classList.add('active');
     applyColor(e.target.dataset.color);
     document.getElementById('customColor').value = e.target.dataset.color;
+    saveToStorage();
   }
 });
 document.getElementById('customColor').addEventListener('input', e=>{
   document.querySelectorAll('#colorDots button').forEach(b=>b.classList.remove('active'));
   applyColor(e.target.value);
+  saveToStorage();
 });
 
 /* relógio ao vivo */
@@ -1686,45 +1789,74 @@ function syncPanel(){
   document.querySelectorAll('#sceneTabs button').forEach(b=>b.classList.toggle('active', b.dataset.scene===state.scene));
 }
 
-/* INIT */
-applyColor(state.color);
-document.getElementById('customColor').value = state.color;
-/* sincroniza inputs do editor react com o estado (caso venha da URL) */
-document.getElementById('reactTitle').value = reactState.title;
-document.getElementById('reactSeason').value = reactState.season;
-document.getElementById('reactEpisode').value = reactState.episode;
-document.getElementById('reactNote').value = reactState.note;
-document.querySelectorAll('#reactTypeSeg button').forEach(b=>b.classList.toggle('active', b.dataset.rtype===reactState.type));
-updateReactFields();
-updateReactEditorVisibility();
-/* sincroniza UI do Spotify */
-document.getElementById('spotifyToggle').checked = SP.enabled;
-if(SP.enabled) spStartPolling();
-/* sincroniza UI das redes sociais */
-document.getElementById('socTiktokOn').checked = social.tiktok.on;
-document.getElementById('socTiktok').value    = social.tiktok.handle;
-document.getElementById('socInstaOn').checked = social.instagram.on;
-document.getElementById('socInsta').value     = social.instagram.handle;
-document.getElementById('socYtOn').checked    = social.youtube.on;
-document.getElementById('socYt').value        = social.youtube.handle;
-/* sincroniza UI do IRL */
-document.getElementById('irlLocation').value = irlState.location;
-document.getElementById('irlKicker').value   = irlState.kicker;
-/* sync Twitch e estilo */
-document.getElementById('twitchChannel').value = TWITCH.channel || '';
-document.getElementById('chatMode').value = CHAT.mode;
-document.getElementById('chatUrl').value = CHAT.url || '';
-updateChatFieldsVisibility();
-document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
-document.getElementById('squareToggle').checked = document.body.classList.contains('square');
-/* sync fundo */
-document.getElementById('bgType').value = bg.type;
-document.getElementById('bgColor1').value = bg.color1;
-document.getElementById('bgColor2').value = bg.color2;
-document.getElementById('bgImg').value = bg.imageUrl;
-updateBgFieldsVisibility();
-syncPanel();
-render();
+/* =========================================================================
+   INIT — assíncrono para aguardar o Supabase antes de renderizar
+========================================================================= */
+function syncUI() {
+  applyColor(state.color);
+  document.getElementById('customColor').value = state.color;
+  document.getElementById('reactTitle').value   = reactState.title;
+  document.getElementById('reactSeason').value  = reactState.season;
+  document.getElementById('reactEpisode').value = reactState.episode;
+  document.getElementById('reactNote').value    = reactState.note;
+  document.querySelectorAll('#reactTypeSeg button').forEach(b=>b.classList.toggle('active', b.dataset.rtype===reactState.type));
+  updateReactFields();
+  updateReactEditorVisibility();
+  document.getElementById('spotifyToggle').checked = SP.enabled;
+  if(SP.enabled) spStartPolling();
+  document.getElementById('socTiktokOn').checked = social.tiktok.on;
+  document.getElementById('socTiktok').value     = social.tiktok.handle;
+  document.getElementById('socInstaOn').checked  = social.instagram.on;
+  document.getElementById('socInsta').value      = social.instagram.handle;
+  document.getElementById('socYtOn').checked     = social.youtube.on;
+  document.getElementById('socYt').value         = social.youtube.handle;
+  document.getElementById('irlLocation').value   = irlState.location;
+  document.getElementById('irlKicker').value     = irlState.kicker;
+  document.getElementById('twitchChannel').value = TWITCH.channel || '';
+  document.getElementById('chatMode').value      = CHAT.mode;
+  document.getElementById('chatUrl').value       = CHAT.url || '';
+  updateChatFieldsVisibility();
+  document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
+  document.getElementById('squareToggle').checked   = document.body.classList.contains('square');
+  document.getElementById('bgType').value   = bg.type;
+  document.getElementById('bgColor1').value = bg.color1;
+  document.getElementById('bgColor2').value = bg.color2;
+  document.getElementById('bgImg').value    = bg.imageUrl;
+  updateBgFieldsVisibility();
+  syncPanel();
+}
+
+(async () => {
+  /* mostra indicador de carregamento */
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8a8a92;font-size:13px;font-family:monospace;gap:10px;"><span style="animation:blink 1s infinite;display:inline-block">●</span> Conectando ao Supabase...</div>';
+
+  if (!isOBS) {
+    await loadFromStorage();
+  }
+
+  syncUI();
+  render(); /* render já chama saveToStorage via wrap, exceto no OBS */
+})();
+
+/* =========================================================================
+   OBS: polling no Supabase — verifica mudanças a cada POLL_INTERVAL ms
+   e re-renderiza automaticamente se algo mudou.
+========================================================================= */
+if (isOBS) {
+  let _lastConfigStr = '';
+  setInterval(async () => {
+    const d = await sbLoad();
+    if (!d) return;
+    const str = JSON.stringify(d);
+    if (str === _lastConfigStr) return; // nada mudou
+    _lastConfigStr = str;
+    applyConfig(d);
+    applyColor(state.color);
+    _renderBase(); // re-renderiza sem salvar (evita loop)
+    syncPanel();
+  }, POLL_INTERVAL);
+}
 </script>
 </body>
 </html>
