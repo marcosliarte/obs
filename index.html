@@ -1085,7 +1085,7 @@ function renderSpotifyPill(){
    Settings → API no painel do Supabase.
 ========================================================================= */
 const SUPABASE_URL  = 'https://lzfkwdirmwcuwgrgiguq.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6Zmt3ZGlybXdjdXdncmdpZ3VxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2OTU0NDAsImV4cCI6MjA5NjI3MTQ0MH0.jWeQwakakE8lcDCQVZ8L-XuXaEEPdYIMIcfTHUAlzAY';
+const SUPABASE_KEY  = 'sb_publishable_PeRkBtbqIR4XK5jvkrVz_g_MVVVWYPQ';
 const OVERLAY_ID    = 'default';                   // ID do overlay (pode ter vários)
 const POLL_INTERVAL = 2500;                        // ms — OBS verifica mudanças nesse intervalo
 
@@ -1432,7 +1432,7 @@ const scenes = {
         <!-- info embaixo da janela de vídeo -->
         <div class="info-strip" style="bottom:3%; left:2.5%; width:70%; justify-content:flex-start;">
           <span class="pill">${reactPillText()}</span><span class="label">Reagindo a ${reactTitleHtml()}</span>
-          <span class="label" style="margin-left:auto; color:var(--text-dim)">${escapeHtml(gameState.nick)}</span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
         </div>
       ` : `
         <!-- PORTRAIT (TikTok): vídeo grande topo + facecam flutuando + chat embaixo -->
@@ -1450,7 +1450,7 @@ const scenes = {
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
         <div class="info-strip" style="bottom:2%; left:3%; width:94%;">
-          <span class="pill">${reactPillText()}</span><span class="label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${reactTitleHtml()}</span><span class="label" style="margin-left:auto; color:var(--text-dim); flex-shrink:0;">${escapeHtml(gameState.nick)}</span>
+          <span class="pill">${reactPillText()}</span><span class="label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${reactTitleHtml()}</span><span class="label" style="margin-left:auto; color:var(--text-dim); flex-shrink:0;">@seunick</span>
         </div>
       `}
     `;
@@ -1588,7 +1588,7 @@ const scenes = {
         <div class="fs-title">VALEU POR<br><em>ASSISTIR</em></div>
         <div class="fs-sub">Foi incrível ter você aqui. Me segue nas redes pra não perder a próxima.</div>
         <div class="info-strip" style="position:relative; margin-top:8px; background:transparent; border:none;">
-          <span class="pill">@</span><span class="label">${escapeHtml(gameState.nick.replace(/^@/, ''))}</span>
+          <span class="pill">@</span><span class="label">seunick</span>
           <span class="label" style="color:var(--text-dim)">•</span>
           <span class="label">todas as redes</span>
         </div>
@@ -1607,10 +1607,10 @@ function render(){
   stage.className = 'stage ' + state.format;
   stage.innerHTML = scenes[state.scene](state.format);
   // re-insere a camada de fundo (foi apagada pelo innerHTML)
-  const bgLayer = document.createElement('div');
-  bgLayer.id = 'bgLayer';
-  bgLayer.className = 'bg-layer';
-  stage.insertBefore(bgLayer, stage.firstChild);
+  const bg = document.createElement('div');
+  bg.id = 'bgLayer';
+  bg.className = 'bg-layer';
+  stage.insertBefore(bg, stage.firstChild);
   applyBackground();
   // detecta info-strip pra ajustar posição do Spotify
   if (stage.querySelector('.info-strip')) stage.classList.add('has-infobar');
@@ -1958,56 +1958,29 @@ function syncUI() {
     render();
   }
 
-  /* OBS: Realtime WebSocket + polling de fallback */
+  /* OBS: polling a cada POLL_INTERVAL ms para detectar mudanças do painel */
   if (isOBS) {
+    /* badge de versão discreto no canto — confirma que o OBS carregou esta versão */
     const ver = document.createElement('div');
-    ver.textContent = 'v3 · ' + new Date().toLocaleTimeString();
+    ver.textContent = 'v2 · ' + new Date().toLocaleTimeString();
     ver.style.cssText = 'position:fixed; bottom:2px; right:4px; font:9px monospace; color:rgba(255,255,255,0.25); z-index:99999; pointer-events:none;';
     document.body.appendChild(ver);
 
-    function obsApply(fresh) {
-      applyConfig(fresh, true);
+    let _lastStr = d ? JSON.stringify(d) : '';
+    console.log('[OBS] iniciado. Config inicial:', d);
+    setInterval(async () => {
+      const fresh = await sbLoad();
+      if (!fresh) { console.log('[OBS] sbLoad retornou null'); return; }
+      const str = JSON.stringify(fresh);
+      if (str === _lastStr) return; /* nada mudou */
+      console.log('[OBS] MUDANÇA detectada! gameState:', fresh.gameState, '| cor:', fresh.state && fresh.state.color);
+      _lastStr = str;
+      applyConfig(fresh, true); /* mantém scene/format da URL */
       applyColor(state.color);
       applyBackground();
       _renderBase();
-      ver.textContent = 'v3 · ' + new Date().toLocaleTimeString();
-    }
-
-    /* Realtime via WebSocket */
-    try {
-      const wsUrl = SUPABASE_URL.replace('https://', 'wss://') + '/realtime/v1/websocket?apikey=' + SUPABASE_KEY + '&vsn=1.0.0';
-      const ws = new WebSocket(wsUrl);
-      let heartbeat;
-      ws.addEventListener('open', () => {
-        ws.send(JSON.stringify({ topic: 'realtime:public:streamkit_config', event: 'phx_join',
-          payload: { config: { broadcast: { self: false },
-            postgres_changes: [{ event: 'UPDATE', schema: 'public', table: 'streamkit_config', filter: 'id=eq.' + OVERLAY_ID }]
-          }}, ref: '1' }));
-        heartbeat = setInterval(() => ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: '0' })), 20000);
-        ver.textContent = 'v3 · ws ok · ' + new Date().toLocaleTimeString();
-      });
-      ws.addEventListener('message', async e => {
-        try {
-          const msg = JSON.parse(e.data);
-          if (msg.event === 'postgres_changes') {
-            const fresh = await sbLoad();
-            if (fresh) obsApply(fresh);
-          }
-        } catch(_) {}
-      });
-      ws.addEventListener('close',  () => { clearInterval(heartbeat); ver.textContent = 'v3 · ws fechado'; });
-      ws.addEventListener('error',  () => { ver.textContent = 'v3 · ws erro'; });
-    } catch(e) { console.warn('[OBS] WS falhou:', e); }
-
-    /* Polling de fallback — garante sync mesmo se WS cair */
-    let _lastStr = d ? JSON.stringify(d) : '';
-    setInterval(async () => {
-      const fresh = await sbLoad();
-      if (!fresh) return;
-      const str = JSON.stringify(fresh);
-      if (str === _lastStr) return;
-      _lastStr = str;
-      obsApply(fresh);
+      ver.textContent = 'v2 · atualizado ' + new Date().toLocaleTimeString();
+      console.log('[OBS] re-renderizado. gameState atual:', gameState);
     }, POLL_INTERVAL);
   }
 })();
