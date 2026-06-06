@@ -578,6 +578,7 @@
       <button class="active" data-format="landscape">Twitch 16:9</button>
       <button data-format="portrait">TikTok 9:16</button>
     </div>
+    <span id="resDisplay" style="font-family:'Space Mono',monospace; font-size:11px; color:var(--accent); background:var(--accent-soft); border:1px solid currentColor; border-radius:6px; padding:3px 9px; opacity:0.85;">1920×1080</span>
   </div>
 
   <div class="ctrl-group">
@@ -1890,11 +1891,16 @@ function render(){
 /* =========================================================================
    EVENTOS DO PAINEL
 ========================================================================= */
+function updateResDisplay(){
+  const el = document.getElementById('resDisplay');
+  if(el) el.textContent = state.format === 'portrait' ? '1080×1920' : '1920×1080';
+}
 document.getElementById('formatSeg').addEventListener('click', e=>{
   if(e.target.dataset.format){
     document.querySelectorAll('#formatSeg button').forEach(b=>b.classList.remove('active'));
     e.target.classList.add('active');
     state.format = e.target.dataset.format;
+    updateResDisplay();
     render();
   }
 });
@@ -2198,6 +2204,7 @@ function syncUI() {
   document.getElementById('bgColor2').value = bg.color2;
   document.getElementById('bgImg').value    = bg.imageUrl;
   updateBgFieldsVisibility();
+  updateResDisplay();
   syncPanel();
 }
 
