@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Stream Overlay Kit — Minimal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1957,17 +1960,27 @@ function syncUI() {
 
   /* OBS: polling a cada POLL_INTERVAL ms para detectar mudanças do painel */
   if (isOBS) {
+    /* badge de versão discreto no canto — confirma que o OBS carregou esta versão */
+    const ver = document.createElement('div');
+    ver.textContent = 'v2 · ' + new Date().toLocaleTimeString();
+    ver.style.cssText = 'position:fixed; bottom:2px; right:4px; font:9px monospace; color:rgba(255,255,255,0.25); z-index:99999; pointer-events:none;';
+    document.body.appendChild(ver);
+
     let _lastStr = d ? JSON.stringify(d) : '';
+    console.log('[OBS] iniciado. Config inicial:', d);
     setInterval(async () => {
       const fresh = await sbLoad();
-      if (!fresh) return;
+      if (!fresh) { console.log('[OBS] sbLoad retornou null'); return; }
       const str = JSON.stringify(fresh);
       if (str === _lastStr) return; /* nada mudou */
+      console.log('[OBS] MUDANÇA detectada! gameState:', fresh.gameState, '| cor:', fresh.state && fresh.state.color);
       _lastStr = str;
       applyConfig(fresh, true); /* mantém scene/format da URL */
       applyColor(state.color);
       applyBackground();
       _renderBase();
+      ver.textContent = 'v2 · atualizado ' + new Date().toLocaleTimeString();
+      console.log('[OBS] re-renderizado. gameState atual:', gameState);
     }, POLL_INTERVAL);
   }
 })();
