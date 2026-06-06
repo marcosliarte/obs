@@ -117,13 +117,10 @@
 
   /* ===================== CAMADA DE FUNDO (atrás de tudo) ===================== */
   .bg-layer {
-    position: absolute; inset: 0; z-index: 0;
+    position: absolute; inset: 0; z-index: -1;
     background-size: cover; background-position: center; background-repeat: no-repeat;
     pointer-events: none;
   }
-  /* No OBS: bg-layer fica atrás de tudo (z-index -1 garante que as fontes
-     do OBS apareçam acima do fundo mas abaixo dos elementos do overlay) */
-  body.obs .bg-layer { z-index: 0; }
   /* tudo dentro do stage fica acima do fundo */
   .stage > .win,
   .stage > .fs,
