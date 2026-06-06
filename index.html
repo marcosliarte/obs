@@ -118,6 +118,9 @@
     background-size: cover; background-position: center; background-repeat: no-repeat;
     pointer-events: none;
   }
+  /* No OBS: bg-layer fica atrás de tudo (z-index -1 garante que as fontes
+     do OBS apareçam acima do fundo mas abaixo dos elementos do overlay) */
+  body.obs .bg-layer { z-index: 0; }
   /* tudo dentro do stage fica acima do fundo */
   .stage > .win,
   .stage > .fs,
@@ -270,10 +273,9 @@
   body.obs .win-body { background: transparent !important; }
   body.obs { background: transparent !important; }
   html.obs { background: transparent !important; }
-  /* fundo de cor/imagem fica transparente no OBS — o "buraco" da webcam/jogo
-     deve deixar a fonte do OBS aparecer por baixo. Se quiser fundo, adicione
-     como uma fonte separada no OBS abaixo do overlay. */
-  body.obs .bg-layer { display: none !important; }
+  /* No OBS o bg-layer aparece normalmente — fica atrás de tudo via z-index.
+     Os placeholders de webcam/jogo ficam transparentes, deixando as fontes
+     do OBS aparecerem por cima do fundo. */
   body.obs .chat-stream::before { display: none !important; }
   /* opção: esconder badge "AO VIVO/LIVE" via ?hide_live=1 */
   body.obs.hide-live .live-badge { display: none !important; }
@@ -670,7 +672,7 @@
 </div>
 
 <div class="hint-bar">
-  <b>OBS:</b> As configurações são <b>salvas automaticamente</b>. Adicione como <b>Browser Source</b>. Use <b>1920×1080</b> (Twitch) ou <b>1080×1920</b> (TikTok). Webcam/jogo/fundo de cor ficam como fontes <b>abaixo</b> do overlay na lista do OBS — o overlay mantém os buracos transparentes.
+  <b>OBS:</b> Configurações salvas automaticamente. Browser Source no <b>topo</b> da lista. Webcam e jogo ficam <b>abaixo</b> do overlay. Fundo de cor/imagem: configure aqui no painel — ou adicione como fonte abaixo de tudo no OBS.
 </div>
 
 <!-- ===================== EDITOR DA CENA REACT ===================== -->
@@ -729,6 +731,19 @@
   </div>
 </div>
 
+<!-- ===================== EDITOR DE JOGO ===================== -->
+<div class="react-editor" id="gameEditor">
+  <span class="ed-label">🎮 Jogo</span>
+  <div class="field">
+    <small>Nome do jogo</small>
+    <input type="text" id="gameName" placeholder="Nome do jogo" value="SEU JOGO AQUI" style="width:220px;">
+  </div>
+  <div class="field">
+    <small>Seu nick</small>
+    <input type="text" id="gameNick" placeholder="@seunick" value="@seunick" style="width:140px;">
+  </div>
+</div>
+
 <!-- ===================== PALCO ===================== -->
 <div class="stage-wrap">
   <div class="stage landscape" id="stage"></div>
@@ -739,6 +754,7 @@
    STATE
 ========================================================================= */
 const state = { format: 'landscape', scene: 'game', color: '#d6f24b' };
+const gameState = { name: 'SEU JOGO AQUI', nick: '@seunick' };
 
 /* estado do chat (precisa existir ANTES de ler os params da URL) */
 const TWITCH = {
@@ -1131,6 +1147,7 @@ function applyConfig(d, keepSceneFormat) {
     if (keepSceneFormat) { state.scene = _scene; state.format = _format; }
   }
   if (d.reactState) Object.assign(reactState, d.reactState);
+  if (d.gameState)  Object.assign(gameState, d.gameState);
   if (d.irlState)   Object.assign(irlState, d.irlState);
   if (d.social)     Object.assign(social, d.social);
   if (d.SP)         SP.enabled = !!d.SP.enabled;
@@ -1147,6 +1164,7 @@ function buildConfig() {
   return {
     state,
     reactState,
+    gameState,
     irlState,
     social,
     SP: { enabled: SP.enabled },
@@ -1364,8 +1382,8 @@ const scenes = {
         </div>
         <!-- info -->
         <div class="info-strip" style="bottom:3%; left:2.5%; width:70%; justify-content:flex-start;">
-          <span class="pill">Agora</span><span class="label">Jogando <span>•</span> <b style="color:var(--accent)">SEU JOGO AQUI</b></span>
-          <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
+          <span class="pill">Agora</span><span class="label">Jogando <span>•</span> <b style="color:var(--accent)">${escapeHtml(gameState.name)}</b></span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">${escapeHtml(gameState.nick)}</span>
         </div>
       ` : `
         <!-- PORTRAIT (TikTok): gameplay grande topo + facecam flutuando + chat embaixo -->
@@ -1383,8 +1401,8 @@ const scenes = {
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
         <div class="info-strip" style="bottom:2%; left:3%; width:94%;">
-          <span class="pill">Live</span><span class="label"><b style="color:var(--accent)">SEU JOGO</b></span>
-          <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
+          <span class="pill">Live</span><span class="label"><b style="color:var(--accent)">${escapeHtml(gameState.name)}</b></span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">${escapeHtml(gameState.nick)}</span>
         </div>
       `}
     `;
@@ -1625,10 +1643,9 @@ document.getElementById('sceneTabs').addEventListener('click', e=>{
 /* ----- EDITOR REACT ----- */
 function updateReactEditorVisibility(){
   document.getElementById('reactEditor').classList.toggle('show', state.scene==='react');
-  // o editor de redes aparece em cenas com webcam (inclui IRL)
+  document.getElementById('gameEditor').classList.toggle('show', state.scene==='game');
   const sceneHasCam = ['game','react','reactfree','chatting','irl'].includes(state.scene);
   document.getElementById('socialEditor').classList.toggle('show', sceneHasCam);
-  // editor IRL aparece só na cena IRL
   document.getElementById('irlEditor').classList.toggle('show', state.scene==='irl');
 }
 function updateReactFields(){
@@ -1774,6 +1791,16 @@ document.getElementById('bgColor2').addEventListener('input', e=>{ bg.color2 = e
 document.getElementById('bgImg').addEventListener('input', e=>{ bg.imageUrl = e.target.value.trim(); applyBackground(); saveToStorage(); });
 
 /* ----- IRL HANDLERS ----- */
+/* ----- GAME HANDLERS ----- */
+document.getElementById('gameName').addEventListener('input', e=>{
+  gameState.name = e.target.value || 'SEU JOGO AQUI';
+  if(state.scene==='game') render(); else saveToStorage();
+});
+document.getElementById('gameNick').addEventListener('input', e=>{
+  gameState.nick = e.target.value || '@seunick';
+  if(state.scene==='game') render(); else saveToStorage();
+});
+
 document.getElementById('irlLocation').addEventListener('input', e=>{
   irlState.location = e.target.value;
   if(state.scene==='irl') render(); else saveToStorage();
@@ -1883,6 +1910,8 @@ function syncUI() {
   document.getElementById('socInsta').value      = social.instagram.handle;
   document.getElementById('socYtOn').checked     = social.youtube.on;
   document.getElementById('socYt').value         = social.youtube.handle;
+  document.getElementById('gameName').value      = gameState.name;
+  document.getElementById('gameNick').value      = gameState.nick;
   document.getElementById('irlLocation').value   = irlState.location;
   document.getElementById('irlKicker').value     = irlState.kicker;
   document.getElementById('twitchChannel').value = TWITCH.channel || '';
