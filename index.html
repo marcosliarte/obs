@@ -103,14 +103,6 @@
     position: relative; background: transparent;
     overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
     border: 1px solid rgba(255,255,255,0.06);
-    /* checkerboard padrão pra indicar transparência quando não há fundo customizado */
-    background-image:
-      linear-gradient(45deg, #18181b 25%, transparent 25%),
-      linear-gradient(-45deg, #18181b 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #18181b 75%),
-      linear-gradient(-45deg, transparent 75%, #18181b 75%);
-    background-size: 24px 24px;
-    background-position: 0 0, 0 12px, 12px -12px, -12px 0;
   }
   .stage.landscape { width: min(1100px, 95vw); aspect-ratio: 16 / 9; }
   .stage.portrait  { width: min(420px, 90vw); aspect-ratio: 9 / 16; }
@@ -264,10 +256,8 @@
   body.obs .fill-icon,
   body.obs .fill-label,
   body.obs .fill-sub { display: none !important; }
-  /* Apenas webcam transparente no OBS */
-  body.obs .win:has(.cam-fill) { background: transparent !important; }
-  /* Jogo/React/Chat mostram fundo no OBS */
-  body.obs .win:not(:has(.cam-fill)) { background: rgba(20,20,22,0.3) !important; }
+  /* Apenas webcam transparente no OBS - para captura real passar */
+  body.obs .win:has(.cam-fill) { background: transparent !important; border: transparent; }
   body.obs .win-body { background: transparent !important; }
   body.obs { background: transparent !important; }
   html.obs { background: transparent !important; }
@@ -770,28 +760,43 @@ function applyBackground(){
   const stageEl = document.getElementById('stage');
   if(!stageEl) return;
   
+  // Stage sempre transparente para webcam real passar (quando colocada atrás)
+  stageEl.style.backgroundColor = 'transparent';
+  stageEl.style.backgroundImage = 'none';
+  
+  // Aplicar background APENAS nas janelas que NÃO são webcam (jogo, react, chat)
+  const nonCamWindows = stageEl.querySelectorAll('.win:not(:has(.cam-fill))');
+  
   if(bg.type === 'solid'){
-    stageEl.style.backgroundColor = bg.color1;
-    stageEl.style.backgroundImage = 'none';
+    nonCamWindows.forEach(win => {
+      win.style.backgroundColor = bg.color1;
+      win.style.backgroundImage = 'none';
+    });
   } else if(bg.type === 'gradient'){
-    stageEl.style.backgroundColor = bg.color1;
-    stageEl.style.backgroundImage = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
+    nonCamWindows.forEach(win => {
+      win.style.backgroundColor = bg.color1;
+      win.style.backgroundImage = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
+    });
   } else if(bg.type === 'image' && bg.imageUrl){
-    stageEl.style.backgroundColor = '#000';
-    stageEl.style.backgroundImage = `url("${bg.imageUrl}")`;
-    stageEl.style.backgroundSize = 'cover';
-    stageEl.style.backgroundPosition = 'center';
-    stageEl.style.backgroundRepeat = 'no-repeat';
+    nonCamWindows.forEach(win => {
+      win.style.backgroundColor = '#000';
+      win.style.backgroundImage = `url("${bg.imageUrl}")`;
+      win.style.backgroundSize = 'cover';
+      win.style.backgroundPosition = 'center';
+      win.style.backgroundRepeat = 'no-repeat';
+    });
   } else {
     /* nenhum fundo customizado: restaura o checkerboard padrão */
-    stageEl.style.backgroundColor = 'transparent';
-    stageEl.style.backgroundImage = 
-      'linear-gradient(45deg, #18181b 25%, transparent 25%), ' +
-      'linear-gradient(-45deg, #18181b 25%, transparent 25%), ' +
-      'linear-gradient(45deg, transparent 75%, #18181b 75%), ' +
-      'linear-gradient(-45deg, transparent 75%, #18181b 75%)';
-    stageEl.style.backgroundSize = '24px 24px';
-    stageEl.style.backgroundPosition = '0 0, 0 12px, 12px -12px, -12px 0';
+    nonCamWindows.forEach(win => {
+      win.style.backgroundColor = 'transparent';
+      win.style.backgroundImage = 
+        'linear-gradient(45deg, #18181b 25%, transparent 25%), ' +
+        'linear-gradient(-45deg, #18181b 25%, transparent 25%), ' +
+        'linear-gradient(45deg, transparent 75%, #18181b 75%), ' +
+        'linear-gradient(-45deg, transparent 75%, #18181b 75%)';
+      win.style.backgroundSize = '24px 24px';
+      win.style.backgroundPosition = '0 0, 0 12px, 12px -12px, -12px 0';
+    });
   }
 }
 const stage = document.getElementById('stage');
