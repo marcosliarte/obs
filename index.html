@@ -181,9 +181,9 @@
   /* moldura de destaque animada */
   .win.accent-frame::after {
     content: ''; position: absolute; inset: 0; border-radius: 0;
-    border: 2px solid var(--accent); pointer-events: none;
-    box-shadow: 0 0 18px var(--accent-soft), inset 0 0 0 1px rgba(0,0,0,0.4);
-    animation: framePulse 4s ease-in-out infinite;
+    border: 3px solid var(--accent); pointer-events: none;
+    box-shadow: 0 0 30px var(--accent-soft), 0 0 10px var(--accent-soft), inset 0 0 0 1px rgba(0,0,0,0.4);
+    animation: framePulse 2.5s ease-in-out infinite;
   }
 
   /* facecam flutuante (TikTok portrait): sombra forte pra destacar da gameplay */
@@ -206,11 +206,11 @@
   .stage.portrait .info-strip { padding: 11px 16px; gap: 12px; }
   .stage.portrait .info-strip .label { font-size: 14px; }
   .stage.portrait .info-strip .pill  { font-size: 11px; padding: 4px 10px; }
-  .stage.portrait .cmsg-user { font-size: 14px; }
-  .stage.portrait .cmsg-text { font-size: 14px; line-height: 1.45; }
-  .stage.portrait .cmsg { padding: 2px 0; }
+  .stage.portrait .cmsg-user { font-size: 13px; }
+  .stage.portrait .cmsg-text { font-size: 13px; line-height: 1.45; }
+  .stage.portrait .cmsg { padding: 6px 12px 6px 10px; gap: 2px; }
   @keyframes framePulse {
-    0%, 100% { opacity: 0.55; }
+    0%, 100% { opacity: 0.78; }
     50% { opacity: 1; }
   }
   .win-bar {
@@ -220,8 +220,8 @@
     flex-shrink: 0;
   }
   .win-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); opacity: 0.4; }
-  .win-dot.live { background: var(--accent); opacity: 1; animation: blink 2s ease-in-out infinite; }
-  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .win-dot.live { background: var(--accent); opacity: 1; animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
   .win-title {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.1em; color: var(--text-dim);
@@ -273,17 +273,25 @@
 
   /* ===================== CHAT dentro de janela ===================== */
   .chat-stream {
-    position: absolute; inset: 0; padding: 10px;
-    display: flex; flex-direction: column-reverse; gap: 6px; overflow: hidden;
+    position: absolute; inset: 0; padding: 8px;
+    display: flex; flex-direction: column-reverse; gap: 4px; overflow: hidden;
   }
   .chat-stream::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40px;
-    background: linear-gradient(to bottom, var(--bg-soft), transparent); z-index: 2; pointer-events: none;
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 48px;
+    background: linear-gradient(to bottom, rgba(14,14,17,0.96), transparent); z-index: 2; pointer-events: none;
   }
-  .cmsg { animation: cmsgIn 0.4s cubic-bezier(0.16,1,0.3,1) both; }
-  @keyframes cmsgIn { from { opacity:0; transform: translateY(6px); filter: blur(3px);} to {opacity:1; transform:none; filter:none;} }
-  .cmsg-user { font-size: 12px; font-weight: 700; color: var(--cu, var(--accent)); }
-  .cmsg-text { font-size: 12px; color: var(--text); line-height: 1.4; }
+  .cmsg {
+    display: flex; flex-direction: column; gap: 1px;
+    padding: 5px 10px 5px 9px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.055);
+    border-left: 2px solid var(--cu, var(--accent));
+    flex-shrink: 0;
+    animation: cmsgIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes cmsgIn { from { opacity:0; transform: translateY(8px); filter: blur(4px);} to {opacity:1; transform:none; filter:none;} }
+  .cmsg-user { font-size: 11px; font-weight: 700; color: var(--cu, var(--accent)); letter-spacing: 0.02em; }
+  .cmsg-text { font-size: 12px; color: var(--text); line-height: 1.42; }
 
   /* ===================== SOCIAL BADGES (dentro do canto inferior da webcam) ===================== */
   .social-badges {
@@ -599,21 +607,29 @@
   <div class="ctrl-group">
     <span class="ctrl-label">Spotify</span>
     <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
-      <input type="checkbox" id="spotifyToggle" style="cursor:pointer;"> Mostrar balão
+      <input type="checkbox" id="spotifyToggle" style="cursor:pointer;"> Ativar
     </label>
-    <input type="text" id="spotifyTestInput" placeholder='Teste: "Música - Artista"' style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:220px; outline:none;">
+    <div style="display:flex; flex-direction:column; gap:3px;">
+      <input type="text" id="spotifyTestInput" placeholder="Música - Artista (manual) — vazio = lê now-playing.txt" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:310px; outline:none;">
+      <span style="font-size:10px; color:var(--text-dim); font-family:'Space Mono',monospace;">Digite para testar · ou use o Snip (Windows) para atualizar now-playing.txt automaticamente</span>
+    </div>
   </div>
 
   <div class="ctrl-group">
     <span class="ctrl-label">Chat</span>
     <select id="chatMode" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; outline:none; cursor:pointer;">
-      <option value="none">Nenhum (vazio)</option>
-      <option value="test">Teste (fake)</option>
-      <option value="twitch">Twitch (nome do canal)</option>
-      <option value="url">URL externa (widget)</option>
+      <option value="none">Desativado</option>
+      <option value="test">Simulado (demo)</option>
+      <option value="twitch">Twitch</option>
+      <option value="kick">Kick</option>
+      <option value="youtube">YouTube Live</option>
+      <option value="tiktok">TikTok (URL widget)</option>
+      <option value="url">URL personalizada</option>
     </select>
-    <input type="text" id="twitchChannel" placeholder="nome do canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:180px; outline:none; display:none;">
-    <input type="text" id="chatUrl" placeholder="URL do widget (StreamElements, Kick, etc)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:280px; outline:none; display:none;">
+    <input type="text" id="twitchChannel" placeholder="canal twitch (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:170px; outline:none; display:none;">
+    <input type="text" id="kickChannel" placeholder="canal kick (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:170px; outline:none; display:none;">
+    <input type="text" id="ytVideoId" placeholder="ID do vídeo YouTube (ex: dQw4w9WgXcQ)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:240px; outline:none; display:none;">
+    <input type="text" id="chatUrl" placeholder="URL do widget (StreamElements, Streamlabs…)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:280px; outline:none; display:none;">
   </div>
 
   <div class="ctrl-group">
@@ -688,7 +704,7 @@
 
 <!-- ===================== EDITOR DE REDES SOCIAIS ===================== -->
 <div class="react-editor" id="socialEditor">
-  <span class="ed-label">Redes sociais</span>
+  <span class="ed-label">Redes sociais (aparece na cena)</span>
   <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
     <input type="checkbox" id="socTiktokOn"> 🎵 TikTok
   </label>
@@ -745,8 +761,8 @@ const gameState = { name: 'SEU JOGO AQUI', nick: '@seunick' };
 const TWITCH = {
   channel: null, client: null, containers: new Set(), maxMsgs: 12, scriptPromise: null
 };
-/* modo de chat: 'test' (fake) | 'twitch' (tmi.js) | 'url' (iframe externo) */
-const CHAT = { mode: 'test', url: '' };
+/* modo de chat: 'none' | 'test' | 'twitch' | 'kick' | 'youtube' | 'tiktok' | 'url' */
+const CHAT = { mode: 'test', url: '', kickChannel: '', ytVideoId: '' };
 
 /* fundo: type = 'none' | 'solid' | 'gradient' | 'image' */
 const bg = {
@@ -758,11 +774,33 @@ const bg = {
 };
 
 function applyBackground(){
-  // Fundo sempre transparente - sources (webcam, jogo, react) aparecem por trás da moldura
   const stageEl = document.getElementById('stage');
   if(!stageEl) return;
-  stageEl.style.backgroundColor = 'transparent';
-  stageEl.style.backgroundImage = 'none';
+  if (bg.type === 'solid') {
+    stageEl.style.backgroundColor = bg.color1;
+    stageEl.style.backgroundImage = 'none';
+    stageEl.style.backgroundSize = '';
+    stageEl.style.backgroundPosition = '';
+    stageEl.style.backgroundRepeat = '';
+  } else if (bg.type === 'gradient') {
+    stageEl.style.backgroundColor = '';
+    stageEl.style.backgroundImage = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
+    stageEl.style.backgroundSize = '';
+    stageEl.style.backgroundPosition = '';
+    stageEl.style.backgroundRepeat = '';
+  } else if (bg.type === 'image' && bg.imageUrl) {
+    stageEl.style.backgroundColor = '';
+    stageEl.style.backgroundImage = `url("${bg.imageUrl.replace(/"/g,'%22')}")`;
+    stageEl.style.backgroundSize = 'cover';
+    stageEl.style.backgroundPosition = 'center';
+    stageEl.style.backgroundRepeat = 'no-repeat';
+  } else {
+    stageEl.style.backgroundColor = 'transparent';
+    stageEl.style.backgroundImage = 'none';
+    stageEl.style.backgroundSize = '';
+    stageEl.style.backgroundPosition = '';
+    stageEl.style.backgroundRepeat = '';
+  }
 }
 const stage = document.getElementById('stage');
 
@@ -832,13 +870,43 @@ function renderSocialBadges(){
   stageEl.querySelectorAll('.social-badges').forEach(el => el.remove());
 
   const list = activeSocials();
+
+  // CENAS FULLSCREEN (start/brb/end): popula containers inline, sem webcam
+  const fsContainerMap = { start: '.start-socials', brb: '.brb-socials', end: '.end-socials' };
+  if (state.scene in fsContainerMap) {
+    const container = stageEl.querySelector(fsContainerMap[state.scene]);
+    if (container) {
+      if (list.length) {
+        container.innerHTML = list.map(({key, handle}) => `
+          <div class="social-badge ${key}">
+            <span class="si">${socialIcons[key]}</span>
+            <span class="handle">@${escapeHtml(handle)}</span>
+          </div>
+        `).join('');
+      } else if (state.scene === 'end') {
+        container.innerHTML = `
+          <div class="info-strip" style="position:relative; background:transparent; border:none;">
+            <span class="pill">@</span><span class="label">seunick</span>
+            <span class="label" style="color:var(--text-dim)">•</span>
+            <span class="label">todas as redes</span>
+          </div>`;
+      }
+    }
+    return;
+  }
+
   if(!list.length) return;
 
   // acha a webcam (qualquer .win com .cam-fill dentro)
   const camWindows = stageEl.querySelectorAll('.win');
   let camWin = null;
   for (const w of camWindows){
-    if (w.querySelector('.cam-fill')){ camWin = w; break; }
+    if (w.querySelector('.cam-fill')){
+      camWin = w;
+      // garante z-index explícito na webcam — fica acima dos badges independente do CSS :has()
+      w.style.zIndex = '10';
+      break;
+    }
   }
   if(!camWin) return;
 
@@ -855,7 +923,6 @@ function renderSocialBadges(){
   // IRL: cam ocupa a tela inteira
   if (state.scene === 'irl') {
     if (state.format === 'portrait') {
-      // portrait: badges no TOPO direito (pin fica embaixo esquerdo, sem colisão)
       badges.style.top = '14px';
       badges.style.right = '14px';
       badges.style.left = 'auto';
@@ -863,7 +930,6 @@ function renderSocialBadges(){
       badges.style.width = 'auto';
       badges.style.justifyContent = 'flex-end';
     } else {
-      // landscape: continua no canto inferior direito
       badges.style.right = '24px';
       badges.style.bottom = '24px';
       badges.style.left = 'auto';
@@ -874,7 +940,7 @@ function renderSocialBadges(){
     return;
   }
 
-  // Just Chatting (qualquer formato): cam é gigante, coloca DENTRO dela no canto inferior
+  // Just Chatting: não mexer — coloca DENTRO da cam body no canto inferior
   if (state.scene === 'chatting') {
     const camBody = camWin.querySelector('.win-body') || camWin;
     badges.style.left = '0';
@@ -885,37 +951,35 @@ function renderSocialBadges(){
     return;
   }
 
-  // PORTRAIT (game/react/reactfree): facecam é pequena/redonda no canto inferior do gameplay.
-  // Põe os badges no lado OPOSTO à facecam, mesmo bottom (visualmente lado a lado)
+  // PORTRAIT (game/react/reactfree): lado oposto à facecam
   if (state.format === 'portrait') {
     const facecam = stageEl.querySelector('.win.facecam');
     const facecamOnLeft = facecam && facecam.style.left;
-    badges.style.bottom = '36%';
+    badges.style.bottom = '37%';
     badges.style.flexDirection = 'column';
     if (facecamOnLeft) {
-      // facecam à esquerda -> badges à direita
       badges.style.right = '14px';
       badges.style.left = 'auto';
       badges.style.alignItems = 'flex-end';
     } else {
-      // facecam à direita -> badges à esquerda
       badges.style.left = '14px';
       badges.style.right = 'auto';
       badges.style.alignItems = 'flex-start';
     }
     badges.style.width = 'auto';
+    badges.style.zIndex = '4'; // abaixo da webcam (z-index:10) e do facecam (z-index:5)
     stageEl.appendChild(badges);
     return;
   }
 
-  // Demais cenas landscape: posiciona abaixo da webcam em % fixo
-  // A webcam fica sempre em top:3%, right:2.5%, width:24%, height:28%
-  // Então os badges ficam logo abaixo: top ~32%, right 2.5%, width 24%
-  badges.style.top   = '32%';
+  // LANDSCAPE (game/react/reactfree): abaixo da webcam (top:3%+height:28% = 31%)
+  // Margem de 3% para separação visual e evitar sobreposição com glow da borda
+  badges.style.top   = '34%';
   badges.style.right = '2.5%';
   badges.style.left  = 'auto';
   badges.style.width = '24%';
   badges.style.justifyContent = 'center';
+  badges.style.zIndex = '4'; // abaixo da webcam (z-index:10)
   stageEl.appendChild(badges);
 }
 
@@ -1293,29 +1357,45 @@ let chatTimers = [];
 function startChat(container, max=10){
   TWITCH.maxMsgs = max;
 
-  // MODO NENHUM: sem chat — deixa a janela vazia/transparente
+  // DESATIVADO: janela vazia/transparente
   if (CHAT.mode === 'none') return;
 
-  // MODO URL: incorpora widget externo via iframe dentro da janela de chat
-  if (CHAT.mode === 'url' && CHAT.url){
+  // helper: substitui win-body por iframe
+  function setIframe(src){
     const win = container.closest('.win') || container.parentElement;
     const body = win ? win.querySelector('.win-body') : container.parentElement;
-    if (body){
-      body.innerHTML = `<iframe src="${CHAT.url.replace(/"/g,'&quot;')}"
-        style="width:100%; height:100%; border:0; background:transparent;"
-        allowtransparency="true" frameborder="0" scrolling="no"></iframe>`;
-    }
+    if (body) body.innerHTML = `<iframe src="${src}" style="width:100%;height:100%;border:0;background:transparent;" allowtransparency="true" frameborder="0" scrolling="no"></iframe>`;
+  }
+
+  // KICK: iframe do chat oficial
+  if (CHAT.mode === 'kick' && CHAT.kickChannel){
+    const ch = encodeURIComponent(CHAT.kickChannel.toLowerCase().replace(/^@/,''));
+    setIframe(`https://kick.com/popout/${ch}/chat`);
     return;
   }
 
-  // MODO TWITCH: conecta via tmi.js
+  // YOUTUBE LIVE: iframe do chat ao vivo (requer ID do vídeo)
+  if (CHAT.mode === 'youtube' && CHAT.ytVideoId){
+    const vid = encodeURIComponent(CHAT.ytVideoId.trim());
+    const domain = window.location.hostname || 'localhost';
+    setIframe(`https://www.youtube.com/live_chat?v=${vid}&embed_domain=${domain}`);
+    return;
+  }
+
+  // TIKTOK / URL PERSONALIZADA: iframe externo
+  if ((CHAT.mode === 'tiktok' || CHAT.mode === 'url') && CHAT.url){
+    setIframe(CHAT.url.replace(/"/g,'&quot;'));
+    return;
+  }
+
+  // TWITCH: conecta via tmi.js
   if (CHAT.mode === 'twitch' && TWITCH.channel){
     TWITCH.containers.add(container);
     if (!TWITCH.client) connectTwitchChat(TWITCH.channel);
     return;
   }
 
-  // MODO TESTE (fake): mensagens animadas pra preview
+  // SIMULADO (fake / demo): mensagens animadas para preview
   function tick(){
     const u = mockUsers[Math.random()*mockUsers.length|0];
     const t = mockTexts[Math.random()*mockTexts.length|0];
@@ -1534,6 +1614,7 @@ const scenes = {
         <div class="fs-title">COMEÇANDO<br><em>JÁ JÁ</em></div>
         <div class="fs-dots"><i></i><i></i><i></i></div>
         <div class="fs-sub">Preparando tudo por aqui — fica comigo, já voltamos no ar.</div>
+        <div class="start-socials" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; position:relative; z-index:2; margin-top:4px;"></div>
         <div class="clock" style="top:24px; right:24px;" id="clk2">${clockText()}</div>
         <div class="ticker"><div><span>BEM-VINDO À LIVE</span><span>★</span><span>DEIXA O FOLLOW</span><span>★</span><span>ATIVE O SININHO</span><span>★</span><span>COMEÇANDO JÁ</span><span>★</span><span>BEM-VINDO À LIVE</span><span>★</span><span>DEIXA O FOLLOW</span><span>★</span><span>ATIVE O SININHO</span><span>★</span><span>COMEÇANDO JÁ</span><span>★</span></div></div>
       </div>
@@ -1549,6 +1630,7 @@ const scenes = {
         <div class="fs-title">VOLTO<br><em>JÁ</em></div>
         <div class="fs-dots"><i></i><i></i><i></i></div>
         <div class="fs-sub">Pausa rapidinha — não vai a lugar nenhum, já volto.</div>
+        <div class="brb-socials" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; position:relative; z-index:2; margin-top:4px;"></div>
         <div class="clock" style="top:24px; right:24px;" id="clk2">${clockText()}</div>
         <div class="ticker"><div><span>JÁ VOLTO</span><span>●</span><span>AGUARDA AÍ</span><span>●</span><span>PEGA UM CAFÉ</span><span>●</span><span>VOLTAMOS LOGO</span><span>●</span><span>JÁ VOLTO</span><span>●</span><span>AGUARDA AÍ</span><span>●</span><span>PEGA UM CAFÉ</span><span>●</span><span>VOLTAMOS LOGO</span><span>●</span></div></div>
       </div>
@@ -1563,11 +1645,7 @@ const scenes = {
         <div class="fs-kicker">fim da transmissão</div>
         <div class="fs-title">VALEU POR<br><em>ASSISTIR</em></div>
         <div class="fs-sub">Foi incrível ter você aqui. Me segue nas redes pra não perder a próxima.</div>
-        <div class="info-strip" style="position:relative; margin-top:8px; background:transparent; border:none;">
-          <span class="pill">@</span><span class="label">seunick</span>
-          <span class="label" style="color:var(--text-dim)">•</span>
-          <span class="label">todas as redes</span>
-        </div>
+        <div class="end-socials" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; position:relative; z-index:2; margin-top:4px;"></div>
         <div class="clock" style="top:24px; right:24px;">${clockText()}</div>
         <div class="ticker"><div><span>OBRIGADO!</span><span>♥</span><span>ATÉ A PRÓXIMA</span><span>♥</span><span>ME SEGUE NAS REDES</span><span>♥</span><span>VALEU DEMAIS</span><span>♥</span><span>OBRIGADO!</span><span>♥</span><span>ATÉ A PRÓXIMA</span><span>♥</span><span>ME SEGUE NAS REDES</span><span>♥</span><span>VALEU DEMAIS</span><span>♥</span></div></div>
       </div>
@@ -1617,8 +1695,8 @@ document.getElementById('sceneTabs').addEventListener('click', e=>{
 function updateReactEditorVisibility(){
   document.getElementById('reactEditor').classList.toggle('show', state.scene==='react');
   document.getElementById('gameEditor').classList.toggle('show', state.scene==='game');
-  const sceneHasCam = ['game','react','reactfree','chatting','irl'].includes(state.scene);
-  document.getElementById('socialEditor').classList.toggle('show', sceneHasCam);
+  const sceneHasSocial = ['game','react','reactfree','chatting','irl','start','brb','end'].includes(state.scene);
+  document.getElementById('socialEditor').classList.toggle('show', sceneHasSocial);
   document.getElementById('irlEditor').classList.toggle('show', state.scene==='irl');
 }
 function updateReactFields(){
@@ -1721,19 +1799,33 @@ document.getElementById('twitchChannel').addEventListener('change', e=>{
 /* ----- MODO DE CHAT HANDLERS ----- */
 function updateChatFieldsVisibility(){
   document.getElementById('twitchChannel').style.display = (CHAT.mode==='twitch') ? '' : 'none';
-  document.getElementById('chatUrl').style.display = (CHAT.mode==='url') ? '' : 'none';
+  document.getElementById('kickChannel').style.display   = (CHAT.mode==='kick') ? '' : 'none';
+  document.getElementById('ytVideoId').style.display     = (CHAT.mode==='youtube') ? '' : 'none';
+  document.getElementById('chatUrl').style.display       = (CHAT.mode==='url'||CHAT.mode==='tiktok') ? '' : 'none';
+  // atualiza placeholder para TikTok
+  const urlInput = document.getElementById('chatUrl');
+  urlInput.placeholder = CHAT.mode === 'tiktok'
+    ? 'URL do widget TikTok (StreamElements, Streamlabs…)'
+    : 'URL do widget (StreamElements, Streamlabs…)';
 }
 
 document.getElementById('chatMode').addEventListener('change', e=>{
   CHAT.mode = e.target.value;
   updateChatFieldsVisibility();
-  // desconecta twitch se mudou pra outro modo
   if (CHAT.mode !== 'twitch' && TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} TWITCH.client = null; }
   render();
 });
+document.getElementById('kickChannel').addEventListener('change', e=>{
+  CHAT.kickChannel = e.target.value.trim().toLowerCase().replace(/^@/,'');
+  saveToStorage(); render();
+});
+document.getElementById('ytVideoId').addEventListener('input', e=>{
+  CHAT.ytVideoId = e.target.value.trim();
+  saveToStorage(); render();
+});
 document.getElementById('chatUrl').addEventListener('change', e=>{
   CHAT.url = e.target.value.trim();
-  render();
+  saveToStorage(); render();
 });
 
 /* ----- ESTILO HANDLERS ----- */
@@ -1890,6 +1982,8 @@ function syncUI() {
   document.getElementById('irlKicker').value     = irlState.kicker;
   document.getElementById('twitchChannel').value = TWITCH.channel || '';
   document.getElementById('chatMode').value      = CHAT.mode;
+  document.getElementById('kickChannel').value   = CHAT.kickChannel || '';
+  document.getElementById('ytVideoId').value     = CHAT.ytVideoId || '';
   document.getElementById('chatUrl').value       = CHAT.url || '';
   updateChatFieldsVisibility();
   document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
