@@ -180,6 +180,11 @@
     overflow: hidden;
     display: flex; flex-direction: column;
   }
+  /* Webcam: totalmente transparente (sem mostrar fundo) */
+  .win:has(.cam-fill) {
+    background: transparent !important;
+    border: transparent;
+  }
   /* moldura de destaque animada */
   .win.accent-frame::after {
     content: ''; position: absolute; inset: 0; border-radius: 0;
@@ -252,13 +257,17 @@
   /* ============================================================
      MODO OBS: elementos transparentes, sem painel
      ============================================================
-     Quando o overlay roda no OBS (?obs=1), os fills já são
-     transparentes por padrão, deixando as fontes reais aparecerem.
+     Quando o overlay roda no OBS (?obs=1):
+     - Webcam: totalmente transparente para captura real
+     - Jogo/React/Chat: mostram o fundo (cor/gradiente/imagem)
   */
   body.obs .fill-icon,
   body.obs .fill-label,
   body.obs .fill-sub { display: none !important; }
-  body.obs .win { background: transparent !important; }
+  /* Apenas webcam transparente no OBS */
+  body.obs .win:has(.cam-fill) { background: transparent !important; }
+  /* Jogo/React/Chat mostram fundo no OBS */
+  body.obs .win:not(:has(.cam-fill)) { background: rgba(20,20,22,0.3) !important; }
   body.obs .win-body { background: transparent !important; }
   body.obs { background: transparent !important; }
   html.obs { background: transparent !important; }
