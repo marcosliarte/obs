@@ -190,7 +190,7 @@
   .win.facecam {
     border-radius: 0;
     overflow: hidden;
-    box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 0 3px var(--accent);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.7);
     z-index: 5;
   }
   .win.facecam .win-body { border-radius: 0; overflow: hidden; }
@@ -845,9 +845,9 @@ function applyBackground(){
       _paintCanvas(canvas, stageEl, w, h, _bgImg);
     } else {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
       img._url = url;
       img.onload = () => { _bgImg = img; _paintCanvas(canvas, stageEl, w, h, img); };
+      img.onerror = () => { console.warn('[BG] falha ao carregar imagem:', url); };
       img.src = url;
     }
   } else {
@@ -1671,7 +1671,7 @@ const scenes = {
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div><div class="fill-sub">browser / media source</div></div><div class="shimmer"></div></div>
         </div>
         <!-- webcam canto superior direito -->
-        <div class="win" style="top:3%; right:2.5%; width:24%; height:28%;">
+        <div class="win accent-frame" style="top:3%; right:2.5%; width:24%; height:28%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
         </div>
         <!-- chat embaixo da webcam -->
@@ -1691,7 +1691,7 @@ const scenes = {
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div></div><div class="shimmer"></div></div>
         </div>
         <!-- facecam pequena flutuando -->
-        <div class="win facecam" style="bottom:40%; right:5%; width:28%; height:15%;">
+        <div class="win accent-frame facecam" style="bottom:40%; right:5%; width:28%; height:15%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
         </div>
         <!-- chat embaixo -->
@@ -1715,7 +1715,7 @@ const scenes = {
           <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag" id="clk1">${clockText()}</span></div>
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Tela / vídeo / qualquer fonte</div><div class="fill-sub">display capture · browser · media</div></div><div class="shimmer"></div></div>
         </div>
-        <div class="win" style="top:3%; right:2.5%; width:24%; height:28%;">
+        <div class="win accent-frame" style="top:3%; right:2.5%; width:24%; height:28%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
         </div>
         <div class="win" style="bottom:3%; right:2.5%; width:24%; height:54%;">
@@ -1729,7 +1729,7 @@ const scenes = {
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Tela / vídeo / qualquer fonte</div></div><div class="shimmer"></div></div>
         </div>
         <!-- facecam pequena flutuando -->
-        <div class="win facecam" style="bottom:34%; right:5%; width:30%; height:17%;">
+        <div class="win accent-frame facecam" style="bottom:34%; right:5%; width:30%; height:17%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam</div></div><div class="live-badge"><i></i>LIVE</div></div>
         </div>
         <!-- chat embaixo -->
