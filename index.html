@@ -656,7 +656,17 @@
     <span id="sbDot" style="width:8px;height:8px;border-radius:50%;background:#8a8a92;display:inline-block;flex-shrink:0;"></span>
     <span id="sbMsg">Conectando...</span>
   </div>
-  <button class="copy-link-main" id="copyLinkMain">🔗 Copiar link p/ OBS</button>
+  <div style="position:relative;">
+    <button class="copy-link-main" id="linksMenuBtn" onclick="toggleLinksMenu()">🔗 Links OBS ▾</button>
+    <div id="linksMenu" style="display:none; position:absolute; right:0; top:calc(100% + 6px); z-index:999;
+      background:#0e0e10; border:1px solid rgba(255,255,255,0.12); border-radius:12px;
+      padding:10px; min-width:340px; box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+      <div style="font-size:10px; color:#8a8a92; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; padding:2px 6px 8px;">
+        Cole cada link no Browser Source da cena correspondente no OBS
+      </div>
+      <div id="linksList"></div>
+    </div>
+  </div>
 </div>
 
 <div class="hint-bar">
@@ -1112,9 +1122,15 @@ async function sbLoad() {
 }
 
 /* --- aplica um objeto de config nos estados globais --- */
-function applyConfig(d) {
+function applyConfig(d, keepSceneFormat) {
   if (!d) return false;
-  if (d.state)      Object.assign(state, d.state);
+  if (d.state) {
+    const _scene  = state.scene;
+    const _format = state.format;
+    Object.assign(state, d.state);
+    /* no OBS: scene e format vêm sempre da URL, nunca do Supabase */
+    if (keepSceneFormat) { state.scene = _scene; state.format = _format; }
+  }
   if (d.reactState) Object.assign(reactState, d.reactState);
   if (d.irlState)   Object.assign(irlState, d.irlState);
   if (d.social)     Object.assign(social, d.social);
@@ -1637,12 +1653,14 @@ document.getElementById('reactEpisode').addEventListener('input', e=>{ reactStat
 document.getElementById('reactNote').addEventListener('input', e=>{ reactState.note = e.target.value; if(state.scene==='react') render(); });
 
 /* ----- MONTAR E COPIAR LINK DA CENA P/ OBS ----- */
-function buildSceneURL(){
-  /* Link fixo — as configurações são lidas do localStorage pelo OBS automaticamente.
-     Só passa ?obs=1 para ativar o modo overlay. */
+function buildSceneURL(scene, format){
+  /* Gera o link fixo pra cada cena. scene/format ficam na URL.
+     Todo o resto (cor, chat, redes sociais) vem do Supabase automaticamente. */
   const base = location.href.split('?')[0];
   const p = new URLSearchParams();
   p.set('obs', '1');
+  p.set('scene', scene || state.scene);
+  p.set('format', format || state.format);
   return base + '?' + p.toString();
 }
 function copyToClipboard(text, btn){
@@ -1657,8 +1675,10 @@ function fallbackCopy(text, done){
   try{ document.execCommand('copy'); done(); }catch(e){ prompt('Copie o link manualmente:', text); }
   document.body.removeChild(ta);
 }
-document.getElementById('copyLinkMain').addEventListener('click', e=>copyToClipboard(buildSceneURL(), e.target));
-document.getElementById('copyLink').addEventListener('click', e=>copyToClipboard(buildSceneURL(), e.target));
+/* copyLink no editor react: copia o link da cena atual */
+document.getElementById('copyLink').addEventListener('click', e=>{
+  copyToClipboard(buildSceneURL(state.scene, state.format), e.target);
+});
 
 /* ----- SPOTIFY HANDLERS ----- */
 document.getElementById('spotifyToggle').addEventListener('change', e=>{
@@ -1790,6 +1810,60 @@ function syncPanel(){
 }
 
 /* =========================================================================
+   MENU DE LINKS POR CENA
+========================================================================= */
+const SCENE_LABELS = {
+  game:      '🎮 Jogo',
+  react:     '🎬 React (filme/série)',
+  reactfree: '▶️ React Livre',
+  chatting:  '💬 Just Chatting',
+  irl:       '📍 IRL',
+  start:     '⏳ Começando',
+  brb:       '☕ Volto já',
+  end:       '👋 Fim',
+};
+
+function renderLinksMenu() {
+  const list = document.getElementById('linksList');
+  if (!list) return;
+  const fmt = state.format;
+  list.innerHTML = Object.entries(SCENE_LABELS).map(([scene, label]) => {
+    const url = buildSceneURL(scene, fmt);
+    return `
+      <div style="display:flex; align-items:center; gap:8px; padding:5px 6px; border-radius:7px;">
+        <span style="font-size:12px; min-width:130px; color:#f5f5f6;">${label}</span>
+        <span style="font-family:monospace; font-size:10px; color:#8a8a92; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${url}">${url.replace(/^https?:\/\//, '')}</span>
+        <button onclick="copyObsLink(this,'${url}')" style="background:#1f1f22; border:1px solid rgba(255,255,255,0.1); color:#d6f24b; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0;">Copiar</button>
+      </div>`;
+  }).join('');
+}
+
+function toggleLinksMenu() {
+  const menu = document.getElementById('linksMenu');
+  const isOpen = menu.style.display !== 'none';
+  menu.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) renderLinksMenu();
+}
+
+function copyObsLink(btn, url) {
+  navigator.clipboard.writeText(url).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado!';
+    btn.style.color = '#34d399';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = '#d6f24b'; }, 1600);
+  }).catch(() => { prompt('Copie manualmente:', url); });
+}
+
+/* fecha o menu ao clicar fora */
+document.addEventListener('click', e => {
+  const menu = document.getElementById('linksMenu');
+  const btn  = document.getElementById('linksMenuBtn');
+  if (menu && !menu.contains(e.target) && e.target !== btn) {
+    menu.style.display = 'none';
+  }
+});
+
+/* =========================================================================
    INIT — assíncrono para aguardar o Supabase antes de renderizar
 ========================================================================= */
 function syncUI() {
@@ -1831,7 +1905,11 @@ function syncUI() {
   const stage = document.getElementById('stage');
   stage.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8a8a92;font-size:13px;font-family:monospace;gap:10px;"><span style="animation:blink 1s infinite;display:inline-block">●</span> Conectando ao Supabase...</div>';
 
-  if (!isOBS) {
+  if (isOBS) {
+    /* OBS: carrega configs do Supabase mas preserva scene/format da URL */
+    const d = await sbLoad();
+    if (d) applyConfig(d, true);
+  } else {
     await loadFromStorage();
   }
 
@@ -1848,13 +1926,13 @@ if (isOBS) {
   setInterval(async () => {
     const d = await sbLoad();
     if (!d) return;
-    const str = JSON.stringify(d);
-    if (str === _lastConfigStr) return; // nada mudou
-    _lastConfigStr = str;
-    applyConfig(d);
+    /* ignora scene/format do Supabase — a cena é definida pelo link da URL */
+    const comparable = JSON.stringify(d);
+    if (comparable === _lastConfigStr) return;
+    _lastConfigStr = comparable;
+    applyConfig(d, true); /* keepSceneFormat=true: mantém scene/format da URL */
     applyColor(state.color);
-    _renderBase(); // re-renderiza sem salvar (evita loop)
-    syncPanel();
+    _renderBase();
   }, POLL_INTERVAL);
 }
 </script>
