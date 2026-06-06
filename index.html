@@ -913,15 +913,14 @@ function renderSocialBadges(){
     return;
   }
 
-  // Demais cenas: posiciona ABAIXO da webcam, sem mexer no tamanho dela
-  const stageRect = stageEl.getBoundingClientRect();
-  const camRect   = camWin.getBoundingClientRect();
-  const topPx  = camRect.bottom - stageRect.top + 8;
-  const leftPx = camRect.left - stageRect.left;
-  const widthPx = camRect.width;
-  badges.style.top    = (topPx / stageRect.height * 100) + '%';
-  badges.style.left   = (leftPx / stageRect.width * 100) + '%';
-  badges.style.width  = (widthPx / stageRect.width * 100) + '%';
+  // Demais cenas landscape: posiciona abaixo da webcam em % fixo
+  // A webcam fica sempre em top:3%, right:2.5%, width:24%, height:28%
+  // Então os badges ficam logo abaixo: top ~32%, right 2.5%, width 24%
+  badges.style.top   = '32%';
+  badges.style.right = '2.5%';
+  badges.style.left  = 'auto';
+  badges.style.width = '24%';
+  badges.style.justifyContent = 'center';
   stageEl.appendChild(badges);
 }
 
@@ -1355,7 +1354,7 @@ const scenes = {
           <div class="win-body"><div class="game-fill"><div class="fill-icon">🎮</div><div class="fill-label">Captura do jogo</div><div class="fill-sub">game capture aqui</div></div><div class="shimmer"></div></div>
         </div>
         <!-- webcam -->
-        <div class="win accent-frame" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/10;">
+        <div class="win accent-frame" style="top:3%; right:2.5%; width:24%; height:28%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
         </div>
         <!-- chat -->
@@ -1402,7 +1401,7 @@ const scenes = {
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div><div class="fill-sub">browser / media source</div></div><div class="shimmer"></div></div>
         </div>
         <!-- webcam canto superior direito -->
-        <div class="win" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/10;">
+        <div class="win" style="top:3%; right:2.5%; width:24%; height:28%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
         </div>
         <!-- chat embaixo da webcam -->
@@ -1446,7 +1445,7 @@ const scenes = {
           <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag" id="clk1">${clockText()}</span></div>
           <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">Tela / vídeo / qualquer fonte</div><div class="fill-sub">display capture · browser · media</div></div><div class="shimmer"></div></div>
         </div>
-        <div class="win" style="top:3%; right:2.5%; width:24%; aspect-ratio:16/10;">
+        <div class="win" style="top:3%; right:2.5%; width:24%; height:28%;">
           <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
         </div>
         <div class="win" style="bottom:3%; right:2.5%; width:24%; height:54%;">
