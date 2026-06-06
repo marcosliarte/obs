@@ -103,6 +103,7 @@
     position: relative; background: transparent;
     overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
     border: 1px solid rgba(255,255,255,0.06);
+    isolation: isolate;
   }
   .stage.landscape { width: min(1100px, 95vw); aspect-ratio: 16 / 9; }
   .stage.portrait  { width: min(420px, 90vw); aspect-ratio: 9 / 16; }
@@ -264,6 +265,13 @@
   body.obs .win-body { background: transparent !important; }
   body.obs { background: transparent !important; }
   html.obs { background: transparent !important; }
+  /* Buracos: cam/game/video win-body apagam o fundo do stage — OBS source passa por baixo */
+  body.obs .win:has(.cam-fill) .win-body,
+  body.obs .win:has(.game-fill) .win-body,
+  body.obs .win:has(.video-fill) .win-body {
+    mix-blend-mode: destination-out;
+    background: white !important;
+  }
   /* opção: esconder badge "AO VIVO/LIVE" via ?hide_live=1 */
   body.obs.hide-live .live-badge { display: none !important; }
   /* opção: deixar TUDO retangular (sem cantos redondos da facecam) via ?square=1 */
@@ -778,13 +786,6 @@ const bg = {
 function applyBackground(){
   const stageEl = document.getElementById('stage');
   if(!stageEl) return;
-  // No OBS, o stage SEMPRE transparente — as sources reais (webcam, game) só aparecem
-  // onde o pixel HTML é alpha=0. O fundo é aplicado apenas no painel de preview.
-  if (isOBS) {
-    stageEl.style.backgroundColor = 'transparent';
-    stageEl.style.backgroundImage = 'none';
-    return;
-  }
   if (bg.type === 'solid') {
     stageEl.style.backgroundColor = bg.color1;
     stageEl.style.backgroundImage = 'none';
