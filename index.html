@@ -175,7 +175,7 @@
   /* ===================== JANELA / WINDOW (componente base) ===================== */
   .win {
     position: absolute;
-    background: var(--bg-soft);
+    background: rgba(20, 20, 22, 0.3);
     border-radius: 0;
     border: 1px solid var(--panel-border);
     overflow: hidden;
@@ -240,36 +240,25 @@
   .cam-fill, .video-fill, .game-fill {
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 10px;
+    background: transparent;
   }
-  .cam-fill { background: radial-gradient(circle at 50% 40%, #1f1f24, #0e0e10); }
-  .video-fill { background: radial-gradient(circle at 50% 40%, #1a1a2e, #0c0c14); }
-  .game-fill { background: radial-gradient(circle at 30% 30%, #16161c, #0a0a0c); }
   .fill-icon { font-size: 32px; opacity: 0.25; }
   .fill-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
   .fill-sub { font-size: 10px; color: var(--text-dim); opacity: 0.6; font-family: 'Space Mono', monospace; }
 
   /* ============================================================
-     MODO OBS: tudo transparente pra sua webcam/jogo aparecer
+     MODO OBS: elementos transparentes, sem painel
      ============================================================
-     Quando o overlay roda no OBS (?obs=1), os fundos dos
-     placeholders (webcam, jogo, vídeo) ficam transparentes —
-     assim você bota a fonte real ATRÁS no OBS e ela passa pelos
-     "buracos" da moldura. O quadrado preto deixa de cobrir tudo.
+     Quando o overlay roda no OBS (?obs=1), os fills já são
+     transparentes por padrão, deixando as fontes reais aparecerem.
   */
-  body.obs .cam-fill,
-  body.obs .video-fill,
-  body.obs .game-fill { background: transparent !important; }
   body.obs .fill-icon,
   body.obs .fill-label,
   body.obs .fill-sub { display: none !important; }
-  body.obs .win,
+  body.obs .win { background: transparent !important; }
   body.obs .win-body { background: transparent !important; }
   body.obs { background: transparent !important; }
   html.obs { background: transparent !important; }
-  /* No OBS o bg-layer aparece normalmente — fica atrás de tudo via z-index.
-     Os placeholders de webcam/jogo ficam transparentes, deixando as fontes
-     do OBS aparecerem por cima do fundo. */
-  body.obs .chat-stream::before { display: none !important; }
   /* opção: esconder badge "AO VIVO/LIVE" via ?hide_live=1 */
   body.obs.hide-live .live-badge { display: none !important; }
   /* opção: deixar TUDO retangular (sem cantos redondos da facecam) via ?square=1 */
