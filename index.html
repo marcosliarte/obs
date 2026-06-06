@@ -612,10 +612,10 @@
     <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
       <input type="checkbox" id="spotifyToggle" style="cursor:pointer;"> Ativar
     </label>
-    <div style="display:flex; flex-direction:column; gap:3px;">
-      <input type="text" id="spotifyTestInput" placeholder="Música - Artista (manual) — vazio = lê now-playing.txt" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:310px; outline:none;">
-      <span style="font-size:10px; color:var(--text-dim); font-family:'Space Mono',monospace;">Digite para testar · ou use o Snip (Windows) para atualizar now-playing.txt automaticamente</span>
-    </div>
+    <input type="text" id="spotifyClientId" placeholder="Client ID (developer.spotify.com/dashboard)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:240px; outline:none;">
+    <button id="spotifyAuthBtn" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 14px; font-family:inherit; font-size:12px; cursor:pointer;">Conectar</button>
+    <span id="spotifyStatus" style="font-size:11px; color:var(--text-dim);">—</span>
+    <input type="text" id="spotifyTestInput" placeholder="Teste manual: Música - Artista" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:220px; outline:none;">
   </div>
 
   <div class="ctrl-group">
@@ -706,8 +706,8 @@
 </div>
 
 <!-- ===================== EDITOR DE REDES SOCIAIS ===================== -->
-<div class="react-editor" id="socialEditor">
-  <span class="ed-label">Redes sociais (aparece na cena)</span>
+<div class="react-editor show" id="socialEditor">
+  <span class="ed-label">Redes sociais</span>
   <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
     <input type="checkbox" id="socTiktokOn"> 🎵 TikTok
   </label>
@@ -720,6 +720,15 @@
     <input type="checkbox" id="socYtOn"> ▶️ YouTube
   </label>
   <div class="field"><small>@YouTube</small><input type="text" id="socYt" placeholder="meucanal" style="width:140px;"></div>
+</div>
+
+<!-- ===================== EDITOR FIM DE LIVE ===================== -->
+<div class="react-editor" id="endEditor">
+  <span class="ed-label">🔴 Fim de Live</span>
+  <div class="field">
+    <small>Mensagem de despedida</small>
+    <input type="text" id="endMessage" placeholder="Foi incrível ter você aqui..." style="width:340px;" value="Foi incrível ter você aqui. Me segue nas redes pra não perder a próxima.">
+  </div>
 </div>
 
 <!-- ===================== EDITOR IRL (localização) ===================== -->
@@ -1068,43 +1077,147 @@ function renderSocialBadges(){
 ========================================================================= */
 const SP = {
   enabled: false,
-  current: null,        // { title, artist }
+  current: null,
   testMode: false,
-  pollTimer: null
+  pollTimer: null,
+  clientId: '',
+  accessToken: null,
+  refreshToken: null,
+  tokenExpiry: 0,
 };
+
+const endState = { message: 'Foi incrível ter você aqui. Me segue nas redes pra não perder a próxima.' };
 
 function parseNowPlaying(text){
   if(!text) return null;
   const line = text.trim().split('\n')[0].trim();
   if(!line) return null;
-  // formatos aceitos: "Música - Artista" ou "Artista - Música" (assume primeiro)
   const idx = line.indexOf(' - ');
-  if(idx > 0){
-    return { title: line.slice(0, idx).trim(), artist: line.slice(idx + 3).trim() };
-  }
+  if(idx > 0) return { title: line.slice(0, idx).trim(), artist: line.slice(idx + 3).trim() };
   return { title: line, artist: '' };
 }
 
 async function spFetchFile(){
-  if(SP.testMode) return; // não sobrescreve quando está em modo teste
+  if(SP.testMode) return;
   try {
     const r = await fetch('now-playing.txt?t=' + Date.now(), { cache: 'no-store' });
     if(!r.ok){ SP.current = null; renderSpotifyPill(); return; }
-    const text = await r.text();
-    SP.current = parseNowPlaying(text);
+    SP.current = parseNowPlaying(await r.text());
     renderSpotifyPill();
-  } catch(e){
-    // arquivo não existe ainda — tudo bem, só não mostra
-    SP.current = null;
-    renderSpotifyPill();
+  } catch(e){ SP.current = null; renderSpotifyPill(); }
+}
+
+/* ---- SPOTIFY PKCE API ---- */
+function spRedirectUri(){ return window.location.origin + window.location.pathname; }
+
+async function spCodeVerifier(){
+  const arr = new Uint8Array(64);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+async function spCodeChallenge(v){
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function spLogin(){
+  const cid = SP.clientId || document.getElementById('spotifyClientId').value.trim();
+  if(!cid){ alert('Preencha o Client ID do Spotify primeiro.\n\nCrie um app em: developer.spotify.com/dashboard\nUse como Redirect URI: ' + spRedirectUri()); return; }
+  SP.clientId = cid;
+  const v = await spCodeVerifier();
+  const ch = await spCodeChallenge(v);
+  sessionStorage.setItem('sp_v', v);
+  sessionStorage.setItem('sp_cid', cid);
+  const p = new URLSearchParams({ response_type:'code', client_id:cid, scope:'user-read-currently-playing user-read-playback-state', redirect_uri:spRedirectUri(), code_challenge_method:'S256', code_challenge:ch });
+  window.location.href = 'https://accounts.spotify.com/authorize?' + p;
+}
+
+async function spExchangeCode(code){
+  const v = sessionStorage.getItem('sp_v');
+  const cid = sessionStorage.getItem('sp_cid') || SP.clientId;
+  if(!v || !cid) return false;
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ client_id:cid, grant_type:'authorization_code', code, redirect_uri:spRedirectUri(), code_verifier:v })
+    });
+    const d = await r.json();
+    if(!d.access_token) return false;
+    SP.clientId = cid; SP.accessToken = d.access_token; SP.refreshToken = d.refresh_token;
+    SP.tokenExpiry = Date.now() + d.expires_in * 1000;
+    spSaveTokens(); sessionStorage.removeItem('sp_v'); sessionStorage.removeItem('sp_cid');
+    window.history.replaceState({}, '', window.location.pathname);
+    return true;
+  } catch(e){ return false; }
+}
+
+async function spDoRefresh(){
+  if(!SP.refreshToken || !SP.clientId) return false;
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ grant_type:'refresh_token', refresh_token:SP.refreshToken, client_id:SP.clientId })
+    });
+    const d = await r.json();
+    if(!d.access_token) return false;
+    SP.accessToken = d.access_token;
+    if(d.refresh_token) SP.refreshToken = d.refresh_token;
+    SP.tokenExpiry = Date.now() + d.expires_in * 1000;
+    spSaveTokens(); return true;
+  } catch(e){ return false; }
+}
+
+function spSaveTokens(){
+  localStorage.setItem('sp_auth', JSON.stringify({ c:SP.clientId, a:SP.accessToken, r:SP.refreshToken, e:SP.tokenExpiry }));
+}
+function spLoadTokens(){
+  try {
+    const d = JSON.parse(localStorage.getItem('sp_auth') || 'null');
+    if(!d) return;
+    SP.clientId = d.c||''; SP.accessToken = d.a||null; SP.refreshToken = d.r||null; SP.tokenExpiry = d.e||0;
+  } catch(e){}
+}
+function spDisconnect(){
+  SP.accessToken = SP.refreshToken = null; SP.tokenExpiry = 0; SP.current = null;
+  localStorage.removeItem('sp_auth');
+  if(SP.pollTimer) clearInterval(SP.pollTimer);
+  renderSpotifyPill(); spUpdateUI();
+}
+function spUpdateUI(){
+  const btn = document.getElementById('spotifyAuthBtn');
+  const status = document.getElementById('spotifyStatus');
+  const cid = document.getElementById('spotifyClientId');
+  if(!btn) return;
+  if(SP.accessToken){
+    btn.textContent = 'Desconectar'; btn.onclick = spDisconnect;
+    if(status){ status.textContent = '✓ Conectado'; status.style.color = '#6bff6b'; }
+    if(cid){ cid.value = SP.clientId; cid.disabled = true; }
+  } else {
+    btn.textContent = 'Conectar'; btn.onclick = spLogin;
+    if(status){ status.textContent = SP.clientId ? 'Não conectado' : '—'; status.style.color = 'var(--text-dim)'; }
+    if(cid){ cid.disabled = false; }
   }
+}
+
+async function spFetchCurrentTrack(){
+  if(!SP.enabled || SP.testMode) return;
+  if(!SP.accessToken){ spFetchFile(); return; }
+  if(Date.now() > SP.tokenExpiry - 60000){ const ok = await spDoRefresh(); if(!ok){ spFetchFile(); return; } }
+  try {
+    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers:{ Authorization:'Bearer '+SP.accessToken } });
+    if(r.status === 204){ SP.current = null; renderSpotifyPill(); return; }
+    if(!r.ok){ spFetchFile(); return; }
+    const d = await r.json();
+    SP.current = (d.is_playing && d.item) ? { title:d.item.name, artist:d.item.artists.map(a=>a.name).join(', ') } : null;
+    renderSpotifyPill();
+  } catch(e){ spFetchFile(); }
 }
 
 function spStartPolling(){
   if(SP.pollTimer) clearInterval(SP.pollTimer);
   if(!SP.enabled) return;
-  spFetchFile();
-  SP.pollTimer = setInterval(spFetchFile, 4000);
+  spFetchCurrentTrack();
+  SP.pollTimer = setInterval(spFetchCurrentTrack, 5000);
 }
 
 function renderSpotifyPill(){
@@ -1292,7 +1405,8 @@ function applyConfig(d, keepSceneFormat) {
   if (d.gameState)  Object.assign(gameState, d.gameState);
   if (d.irlState)   Object.assign(irlState, d.irlState);
   if (d.social)     Object.assign(social, d.social);
-  if (d.SP)         SP.enabled = !!d.SP.enabled;
+  if (d.SP)         { SP.enabled = !!d.SP.enabled; if(d.SP.clientId) SP.clientId = d.SP.clientId; }
+  if (d.endState)   Object.assign(endState, d.endState);
   if (d.CHAT)       Object.assign(CHAT, d.CHAT);
   if (d.TWITCH && d.TWITCH.channel) TWITCH.channel = d.TWITCH.channel;
   if (d.bg)         Object.assign(bg, d.bg);
@@ -1309,7 +1423,8 @@ function buildConfig() {
     gameState,
     irlState,
     social,
-    SP: { enabled: SP.enabled },
+    SP: { enabled: SP.enabled, clientId: SP.clientId },
+    endState,
     CHAT,
     TWITCH: { channel: TWITCH.channel },
     bg,
@@ -1723,7 +1838,7 @@ const scenes = {
         <div class="fs-bg-grid"></div><div class="fs-glow"></div>
         <div class="fs-kicker">fim da transmissão</div>
         <div class="fs-title">VALEU POR<br><em>ASSISTIR</em></div>
-        <div class="fs-sub">Foi incrível ter você aqui. Me segue nas redes pra não perder a próxima.</div>
+        <div class="fs-sub">${escapeHtml(endState.message)}</div>
         <div class="end-socials" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; position:relative; z-index:2; margin-top:4px;"></div>
         <div class="clock" style="top:24px; right:24px;">${clockText()}</div>
         <div class="ticker"><div><span>OBRIGADO!</span><span>♥</span><span>ATÉ A PRÓXIMA</span><span>♥</span><span>ME SEGUE NAS REDES</span><span>♥</span><span>VALEU DEMAIS</span><span>♥</span><span>OBRIGADO!</span><span>♥</span><span>ATÉ A PRÓXIMA</span><span>♥</span><span>ME SEGUE NAS REDES</span><span>♥</span><span>VALEU DEMAIS</span><span>♥</span></div></div>
@@ -1774,10 +1889,13 @@ document.getElementById('sceneTabs').addEventListener('click', e=>{
 function updateReactEditorVisibility(){
   document.getElementById('reactEditor').classList.toggle('show', state.scene==='react');
   document.getElementById('gameEditor').classList.toggle('show', state.scene==='game');
-  const sceneHasSocial = ['game','react','reactfree','chatting','irl','start','brb','end'].includes(state.scene);
-  document.getElementById('socialEditor').classList.toggle('show', sceneHasSocial);
+  document.getElementById('endEditor').classList.toggle('show', state.scene==='end');
   document.getElementById('irlEditor').classList.toggle('show', state.scene==='irl');
 }
+document.getElementById('endMessage').addEventListener('input', e=>{
+  endState.message = e.target.value;
+  render();
+});
 function updateReactFields(){
   const isSeries = reactState.type==='series';
   document.getElementById('seasonField').classList.toggle('hide', !isSeries);
@@ -1830,27 +1948,23 @@ document.getElementById('copyLink').addEventListener('click', e=>{
 document.getElementById('spotifyToggle').addEventListener('change', e=>{
   SP.enabled = e.target.checked;
   if(SP.enabled){
-    // se já há texto de teste, usa ele; senão tenta buscar arquivo
     const test = document.getElementById('spotifyTestInput').value.trim();
     if(test){ SP.testMode = true; SP.current = parseNowPlaying(test); renderSpotifyPill(); }
     else { SP.testMode = false; spStartPolling(); }
   } else {
     if(SP.pollTimer) clearInterval(SP.pollTimer);
-    SP.current = null;
-    renderSpotifyPill();
+    SP.current = null; renderSpotifyPill();
   }
+  saveToStorage();
+});
+document.getElementById('spotifyClientId').addEventListener('change', e=>{
+  SP.clientId = e.target.value.trim();
+  spUpdateUI();
 });
 document.getElementById('spotifyTestInput').addEventListener('input', e=>{
   const v = e.target.value.trim();
-  if(v){
-    SP.testMode = true;
-    if(SP.pollTimer) clearInterval(SP.pollTimer);
-    SP.current = parseNowPlaying(v);
-  } else {
-    SP.testMode = false;
-    SP.current = null;
-    if(SP.enabled) spStartPolling();
-  }
+  if(v){ SP.testMode = true; if(SP.pollTimer) clearInterval(SP.pollTimer); SP.current = parseNowPlaying(v); }
+  else { SP.testMode = false; SP.current = null; if(SP.enabled) spStartPolling(); }
   if(SP.enabled) renderSpotifyPill();
 });
 
@@ -2067,6 +2181,9 @@ function syncUI() {
   updateChatFieldsVisibility();
   document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
   document.getElementById('squareToggle').checked   = document.body.classList.contains('square');
+  document.getElementById('spotifyClientId').value = SP.clientId || '';
+  document.getElementById('endMessage').value = endState.message;
+  spUpdateUI();
   document.getElementById('bgType').value   = bg.type;
   document.getElementById('bgColor1').value = bg.color1;
   document.getElementById('bgColor2').value = bg.color2;
@@ -2081,6 +2198,14 @@ function syncUI() {
 (async () => {
   /* carrega do Supabase — tanto painel quanto OBS */
   const d = await sbLoad();
+
+  // Spotify: carrega tokens salvos e trata callback OAuth
+  spLoadTokens();
+  const _spCode = new URLSearchParams(location.search).get('code');
+  if(_spCode && !isOBS){
+    const ok = await spExchangeCode(_spCode);
+    if(ok && SP.enabled) spStartPolling();
+  }
 
   if (d) {
     /* OBS: preserva scene/format que vieram da URL */
@@ -2101,6 +2226,8 @@ function syncUI() {
   } else {
     render();
   }
+
+  if(!isOBS) spUpdateUI();
 
   /* OBS: polling a cada POLL_INTERVAL ms para detectar mudanças do painel */
   if (isOBS) {
