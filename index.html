@@ -1204,37 +1204,12 @@ render = function() {
   if (!isOBS) saveToStorage();
 };
 
+/* No OBS: define class obs e pega scene/format da URL */
 if (isOBS) {
-  /* Modo OBS: lê params da URL como antes (compatibilidade total) */
-  if (params.get('format')) state.format = params.get('format');
-  if (params.get('scene'))  state.scene  = params.get('scene');
-  if (params.get('color'))  state.color  = '#' + params.get('color').replace('#','');
-  if (params.get('rtype'))   reactState.type    = params.get('rtype');
-  if (params.get('rtitle'))  reactState.title   = params.get('rtitle');
-  if (params.get('rseason')) reactState.season  = params.get('rseason');
-  if (params.get('repisode'))reactState.episode = params.get('repisode');
-  if (params.get('rnote'))   reactState.note    = params.get('rnote');
-  if (params.get('irl_loc'))    irlState.location = params.get('irl_loc');
-  if (params.get('irl_kicker')) irlState.kicker   = params.get('irl_kicker');
-  if (params.get('spotify') === '1') SP.enabled = true;
-  ['tiktok','instagram','youtube'].forEach(k=>{
-    if (params.get('s_' + k)) { social[k].on = true; social[k].handle = params.get('s_' + k); }
-  });
   document.body.classList.add('obs');
   document.documentElement.classList.add('obs');
-  if (params.get('hide_live') === '1') document.body.classList.add('hide-live');
-  if (params.get('square')    === '1') document.body.classList.add('square');
-  if (params.get('twitch'))   { TWITCH.channel = params.get('twitch').toLowerCase(); CHAT.mode = 'twitch'; }
-  if (params.get('chat_url')) { CHAT.url = decodeURIComponent(params.get('chat_url')); CHAT.mode = 'url'; }
-  if (params.get('chat'))     { CHAT.mode = params.get('chat'); }
-  if (params.get('bg'))       { bg.type = params.get('bg'); }
-  if (params.get('bg_color')) { bg.color1 = '#' + params.get('bg_color').replace('#',''); }
-  if (params.get('bg_color2')){ bg.color2 = '#' + params.get('bg_color2').replace('#',''); }
-  if (params.get('bg_angle')) { bg.angle  = parseInt(params.get('bg_angle')) || 135; }
-  if (params.get('bg_img'))   { bg.imageUrl = decodeURIComponent(params.get('bg_img')); }
-} else {
-  /* Modo painel: carrega do localStorage */
-  loadFromStorage();
+  if (params.get('format')) state.format = params.get('format');
+  if (params.get('scene'))  state.scene  = params.get('scene');
 }
 
 /* =========================================================================
@@ -1896,6 +1871,7 @@ document.addEventListener('click', e => {
    INIT — assíncrono para aguardar o Supabase antes de renderizar
 ========================================================================= */
 function syncUI() {
+  if (isOBS) return; /* no OBS não há elementos de painel no DOM */
   applyColor(state.color);
   document.getElementById('customColor').value = state.color;
   document.getElementById('reactTitle').value   = reactState.title;
@@ -1931,54 +1907,49 @@ function syncUI() {
   syncPanel();
 }
 
+/* =========================================================================
+   INIT + POLLING
+========================================================================= */
 (async () => {
-  /* mostra indicador de carregamento */
-  const stage = document.getElementById('stage');
-  stage.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8a8a92;font-size:13px;font-family:monospace;gap:10px;"><span style="animation:blink 1s infinite;display:inline-block">●</span> Conectando ao Supabase...</div>';
+  /* carrega do Supabase — tanto painel quanto OBS */
+  const d = await sbLoad();
 
-  if (isOBS) {
-    /* OBS: carrega configs do Supabase mas preserva scene/format da URL */
-    const d = await sbLoad();
-    if (d) applyConfig(d, true);
-  } else {
-    await loadFromStorage();
+  if (d) {
+    /* OBS: preserva scene/format que vieram da URL */
+    applyConfig(d, isOBS);
   }
 
-  syncUI();
-  render(); /* render já chama saveToStorage via wrap, exceto no OBS */
-})();
+  /* aplica cor depois do applyConfig (garante que --accent esteja certo) */
+  applyColor(state.color);
 
-/* =========================================================================
-   OBS: polling no Supabase — verifica mudanças a cada POLL_INTERVAL ms
-   e re-renderiza automaticamente se algo mudou.
-========================================================================= */
-if (isOBS) {
-  let _lastConfigStr = '';
-  setInterval(async () => {
-    const d = await sbLoad();
-    if (!d) return;
-    /* Compara só os campos que o painel controla — ignora scene/format
-       pra não fazer loop infinito (OBS tem scene/format diferente do painel) */
-    const comparable = JSON.stringify({
-      color:      d.state && d.state.color,
-      reactState: d.reactState,
-      gameState:  d.gameState,
-      irlState:   d.irlState,
-      social:     d.social,
-      SP:         d.SP,
-      CHAT:       d.CHAT,
-      TWITCH:     d.TWITCH,
-      bg:         d.bg,
-      hideLive:   d.hideLive,
-      square:     d.square,
-    });
-    if (comparable === _lastConfigStr) return; // nada mudou
-    _lastConfigStr = comparable;
-    applyConfig(d, true); /* keepSceneFormat=true: mantém scene/format da URL */
-    applyColor(state.color);
-    _renderBase(); /* re-renderiza sem salvar */
-  }, POLL_INTERVAL);
-}
+  if (!isOBS) {
+    /* painel: sincroniza todos os inputs com o estado carregado */
+    syncUI();
+  }
+
+  /* renderiza (no OBS usa _renderBase direto para não salvar) */
+  if (isOBS) {
+    _renderBase();
+  } else {
+    render();
+  }
+
+  /* OBS: polling a cada POLL_INTERVAL ms para detectar mudanças do painel */
+  if (isOBS) {
+    let _lastStr = d ? JSON.stringify(d) : '';
+    setInterval(async () => {
+      const fresh = await sbLoad();
+      if (!fresh) return;
+      const str = JSON.stringify(fresh);
+      if (str === _lastStr) return; /* nada mudou */
+      _lastStr = str;
+      applyConfig(fresh, true); /* mantém scene/format da URL */
+      applyColor(state.color);
+      applyBackground();
+      _renderBase();
+    }, POLL_INTERVAL);
+  }
+})();
 </script>
 </body>
 </html>
