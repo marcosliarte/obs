@@ -103,15 +103,6 @@
     position: relative; background: transparent;
     overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
     border: 1px solid rgba(255,255,255,0.06);
-  }
-  .stage.landscape { width: min(1100px, 95vw); aspect-ratio: 16 / 9; }
-  .stage.portrait  { width: min(420px, 90vw); aspect-ratio: 9 / 16; }
-
-  /* ===================== CAMADA DE FUNDO (atrás de tudo) ===================== */
-  .bg-layer {
-    position: absolute; inset: 0; z-index: -1;
-    background-size: cover; background-position: center; background-repeat: no-repeat;
-    pointer-events: none;
     /* checkerboard padrão pra indicar transparência quando não há fundo customizado */
     background-image:
       linear-gradient(45deg, #18181b 25%, transparent 25%),
@@ -121,8 +112,10 @@
     background-size: 24px 24px;
     background-position: 0 0, 0 12px, 12px -12px, -12px 0;
   }
-  /* tudo dentro do stage fica acima do fundo */
-  .stage > .win,
+  .stage.landscape { width: min(1100px, 95vw); aspect-ratio: 16 / 9; }
+  .stage.portrait  { width: min(420px, 90vw); aspect-ratio: 9 / 16; }
+
+  /* ===================== ELEMENTOS DO STAGE ===================== */
   .stage > .fs,
   .stage > .info-strip,
   .stage > .social-badges,
@@ -773,21 +766,31 @@ const bg = {
 };
 
 function applyBackground(){
-  const layer = document.getElementById('bgLayer');
-  if(!layer) return;
+  const stageEl = document.getElementById('stage');
+  if(!stageEl) return;
+  
   if(bg.type === 'solid'){
-    layer.style.background = bg.color1;
-    layer.style.backgroundImage = 'none';
+    stageEl.style.backgroundColor = bg.color1;
+    stageEl.style.backgroundImage = 'none';
   } else if(bg.type === 'gradient'){
-    layer.style.background = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
-    layer.style.backgroundImage = 'none';
+    stageEl.style.backgroundColor = bg.color1;
+    stageEl.style.backgroundImage = `linear-gradient(${bg.angle}deg, ${bg.color1}, ${bg.color2})`;
   } else if(bg.type === 'image' && bg.imageUrl){
-    layer.style.background = `#000 url("${bg.imageUrl}") center / cover no-repeat`;
-    layer.style.backgroundImage = `url("${bg.imageUrl}")`;
+    stageEl.style.backgroundColor = '#000';
+    stageEl.style.backgroundImage = `url("${bg.imageUrl}")`;
+    stageEl.style.backgroundSize = 'cover';
+    stageEl.style.backgroundPosition = 'center';
+    stageEl.style.backgroundRepeat = 'no-repeat';
   } else {
     /* nenhum fundo customizado: restaura o checkerboard padrão */
-    layer.style.background = '';
-    layer.style.backgroundImage = '';
+    stageEl.style.backgroundColor = 'transparent';
+    stageEl.style.backgroundImage = 
+      'linear-gradient(45deg, #18181b 25%, transparent 25%), ' +
+      'linear-gradient(-45deg, #18181b 25%, transparent 25%), ' +
+      'linear-gradient(45deg, transparent 75%, #18181b 75%), ' +
+      'linear-gradient(-45deg, transparent 75%, #18181b 75%)';
+    stageEl.style.backgroundSize = '24px 24px';
+    stageEl.style.backgroundPosition = '0 0, 0 12px, 12px -12px, -12px 0';
   }
 }
 const stage = document.getElementById('stage');
@@ -1608,11 +1611,6 @@ function render(){
   clearChat();
   stage.className = 'stage ' + state.format;
   stage.innerHTML = scenes[state.scene](state.format);
-  // re-insere a camada de fundo (foi apagada pelo innerHTML)
-  const bg = document.createElement('div');
-  bg.id = 'bgLayer';
-  bg.className = 'bg-layer';
-  stage.insertBefore(bg, stage.firstChild);
   applyBackground();
   // detecta info-strip pra ajustar posição do Spotify
   if (stage.querySelector('.info-strip')) stage.classList.add('has-infobar');
