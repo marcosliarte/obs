@@ -1958,29 +1958,56 @@ function syncUI() {
     render();
   }
 
-  /* OBS: polling a cada POLL_INTERVAL ms para detectar mudanças do painel */
+  /* OBS: Realtime WebSocket + polling de fallback */
   if (isOBS) {
-    /* badge de versão discreto no canto — confirma que o OBS carregou esta versão */
     const ver = document.createElement('div');
-    ver.textContent = 'v2 · ' + new Date().toLocaleTimeString();
+    ver.textContent = 'v3 · ' + new Date().toLocaleTimeString();
     ver.style.cssText = 'position:fixed; bottom:2px; right:4px; font:9px monospace; color:rgba(255,255,255,0.25); z-index:99999; pointer-events:none;';
     document.body.appendChild(ver);
 
-    let _lastStr = d ? JSON.stringify(d) : '';
-    console.log('[OBS] iniciado. Config inicial:', d);
-    setInterval(async () => {
-      const fresh = await sbLoad();
-      if (!fresh) { console.log('[OBS] sbLoad retornou null'); return; }
-      const str = JSON.stringify(fresh);
-      if (str === _lastStr) return; /* nada mudou */
-      console.log('[OBS] MUDANÇA detectada! gameState:', fresh.gameState, '| cor:', fresh.state && fresh.state.color);
-      _lastStr = str;
-      applyConfig(fresh, true); /* mantém scene/format da URL */
+    function obsApply(fresh) {
+      applyConfig(fresh, true);
       applyColor(state.color);
       applyBackground();
       _renderBase();
-      ver.textContent = 'v2 · atualizado ' + new Date().toLocaleTimeString();
-      console.log('[OBS] re-renderizado. gameState atual:', gameState);
+      ver.textContent = 'v3 · ' + new Date().toLocaleTimeString();
+    }
+
+    /* Realtime via WebSocket */
+    try {
+      const wsUrl = SUPABASE_URL.replace('https://', 'wss://') + '/realtime/v1/websocket?apikey=' + SUPABASE_KEY + '&vsn=1.0.0';
+      const ws = new WebSocket(wsUrl);
+      let heartbeat;
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify({ topic: 'realtime:public:streamkit_config', event: 'phx_join',
+          payload: { config: { broadcast: { self: false },
+            postgres_changes: [{ event: 'UPDATE', schema: 'public', table: 'streamkit_config', filter: 'id=eq.' + OVERLAY_ID }]
+          }}, ref: '1' }));
+        heartbeat = setInterval(() => ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: '0' })), 20000);
+        ver.textContent = 'v3 · ws ok · ' + new Date().toLocaleTimeString();
+      });
+      ws.addEventListener('message', async e => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.event === 'postgres_changes') {
+            const fresh = await sbLoad();
+            if (fresh) obsApply(fresh);
+          }
+        } catch(_) {}
+      });
+      ws.addEventListener('close',  () => { clearInterval(heartbeat); ver.textContent = 'v3 · ws fechado'; });
+      ws.addEventListener('error',  () => { ver.textContent = 'v3 · ws erro'; });
+    } catch(e) { console.warn('[OBS] WS falhou:', e); }
+
+    /* Polling de fallback — garante sync mesmo se WS cair */
+    let _lastStr = d ? JSON.stringify(d) : '';
+    setInterval(async () => {
+      const fresh = await sbLoad();
+      if (!fresh) return;
+      const str = JSON.stringify(fresh);
+      if (str === _lastStr) return;
+      _lastStr = str;
+      obsApply(fresh);
     }, POLL_INTERVAL);
   }
 })();
