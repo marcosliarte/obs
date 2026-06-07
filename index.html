@@ -978,7 +978,7 @@ function renderSocialBadges(){
       } else if (state.scene === 'end') {
         container.innerHTML = `
           <div class="info-strip" style="position:relative; background:transparent; border:none;">
-            <span class="pill">@</span><span class="label">seunick</span>
+            <span class="pill">@</span><span class="label">${escapeHtml(gameState.nick.replace(/^@/, ''))}</span>
             <span class="label" style="color:var(--text-dim)">•</span>
             <span class="label">todas as redes</span>
           </div>`;
@@ -1706,7 +1706,7 @@ const scenes = {
         <!-- info embaixo da janela de vídeo -->
         <div class="info-strip" style="bottom:3%; left:2.5%; width:70%; justify-content:flex-start;">
           <span class="pill">${reactPillText()}</span><span class="label">Reagindo a ${reactTitleHtml()}</span>
-          <span class="label" style="margin-left:auto; color:var(--text-dim)">@seunick</span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">${escapeHtml(gameState.nick)}</span>
         </div>
       ` : `
         <!-- PORTRAIT (TikTok): vídeo grande topo + facecam flutuando + chat embaixo -->
@@ -1724,7 +1724,7 @@ const scenes = {
           <div class="win-body"><div class="chat-stream" id="chatBox"></div></div>
         </div>
         <div class="info-strip" style="bottom:2%; left:3%; width:94%;">
-          <span class="pill">${reactPillText()}</span><span class="label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${reactTitleHtml()}</span><span class="label" style="margin-left:auto; color:var(--text-dim); flex-shrink:0;">@seunick</span>
+          <span class="pill">${reactPillText()}</span><span class="label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${reactTitleHtml()}</span><span class="label" style="margin-left:auto; color:var(--text-dim); flex-shrink:0;">${escapeHtml(gameState.nick)}</span>
         </div>
       `}
     `;
