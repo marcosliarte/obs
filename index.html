@@ -587,6 +587,7 @@
       <button class="active" data-scene="game">Jogo</button>
       <button data-scene="react">React</button>
       <button data-scene="reactfree">React Livre</button>
+      <button data-scene="react2cam">React 2 Cams</button>
       <button data-scene="chatting">Just Chatting</button>
       <button data-scene="irl">IRL</button>
       <button data-scene="start">Começando</button>
@@ -690,6 +691,7 @@
   <div class="seg" id="reactTypeSeg">
     <button class="active" data-rtype="movie">🎬 Filme</button>
     <button data-rtype="series">📺 Série</button>
+    <button data-rtype="free">▶️ Livre</button>
   </div>
   <div class="field">
     <small id="titleLabel">Título do filme</small>
@@ -904,7 +906,7 @@ const reactState = {
   episode: '1',
   note: ''
 };
-function reactPillText(){ return reactState.type==='series' ? 'Série' : 'Filme'; }
+function reactPillText(){ return reactState.type==='series' ? 'Série' : reactState.type==='free' ? 'Livre' : 'Filme'; }
 function reactNoteHtml(){
   if(!reactState.note) return '';
   return ` <span style="color:var(--text-dim); margin:0 4px;">•</span> <span style="color:var(--text-dim)">${escapeHtml(reactState.note)}</span>`;
@@ -920,9 +922,10 @@ function reactTitleHtml(){
 }
 function reactBarTag(){
   if (reactState.type==='series') return `T${escapeHtml(reactState.season||'1')} · E${escapeHtml(reactState.episode||'1')}`;
+  if (reactState.type==='free') return '▶ livre';
   return '▶ filme';
 }
-function reactFillLabel(){ return escapeHtml(reactState.title || 'Janela de vídeo'); }
+function reactFillLabel(){ return reactState.type==='free' ? 'Tela / vídeo / qualquer fonte' : escapeHtml(reactState.title || 'Janela de vídeo'); }
 function escapeHtml(str){ const d=document.createElement('div'); d.textContent=String(str); return d.innerHTML; }
 
 /* =========================================================================
@@ -1765,6 +1768,55 @@ const scenes = {
     `;
   },
 
+  /* ---------- REACT 2 CAMS (duas webcams, sem chat, vídeo maior) ---------- */
+  react2cam(fmt){
+    const land = fmt==='landscape';
+    const showInfo = reactState.type !== 'free';
+    return `
+      ${land ? `
+        <!-- janela de vídeo maior à esquerda -->
+        <div class="win accent-frame" style="top:3%; left:2.5%; width:71%; height:84%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">${reactBarTag()}</span></div>
+          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div><div class="fill-sub">browser / media source</div></div><div class="shimmer"></div></div>
+        </div>
+        <!-- webcam 1 (topo direito) -->
+        <div class="win accent-frame" style="top:3%; right:2.5%; width:24%; height:40%;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam 1</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
+        </div>
+        <!-- webcam 2 (baixo direito) -->
+        <div class="win accent-frame" style="top:46.5%; right:2.5%; width:24%; height:40%;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Webcam 2</div></div><div class="live-badge"><i></i>AO VIVO</div></div>
+        </div>
+        ${showInfo ? `
+        <div class="info-strip" style="bottom:3%; left:2.5%; width:71%; justify-content:flex-start;">
+          <span class="pill">${reactPillText()}</span><span class="label">Reagindo a ${reactTitleHtml()}</span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim)">${escapeHtml(gameState.nick)}</span>
+        </div>
+        ` : ''}
+      ` : `
+        <!-- PORTRAIT: vídeo grande topo + duas cams lado a lado embaixo -->
+        <div class="win accent-frame" style="top:2%; left:3%; width:94%; height:53%;">
+          <div class="win-bar"><span class="win-dot live"></span><span class="win-title">REA<b>CT</b></span><span class="win-tag">${reactBarTag()}</span></div>
+          <div class="win-body"><div class="video-fill"><div class="fill-icon">▶️</div><div class="fill-label">${reactFillLabel()}</div></div><div class="shimmer"></div></div>
+        </div>
+        <!-- cam 1 (esquerda) -->
+        <div class="win accent-frame" style="top:58%; left:3%; width:44%; height:33%;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam 1</div></div><div class="live-badge"><i></i>LIVE</div></div>
+        </div>
+        <!-- cam 2 (direita) -->
+        <div class="win accent-frame" style="top:58%; right:3%; width:44%; height:33%;">
+          <div class="win-body"><div class="cam-fill"><div class="fill-icon">📷</div><div class="fill-label">Cam 2</div></div><div class="live-badge"><i></i>LIVE</div></div>
+        </div>
+        ${showInfo ? `
+        <div class="info-strip" style="bottom:2%; left:3%; width:94%;">
+          <span class="pill">${reactPillText()}</span><span class="label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${reactTitleHtml()}</span>
+          <span class="label" style="margin-left:auto; color:var(--text-dim); flex-shrink:0;">${escapeHtml(gameState.nick)}</span>
+        </div>
+        ` : ''}
+      `}
+    `;
+  },
+
   /* ---------- JUST CHATTING ---------- */
   chatting(fmt){
     const land = fmt==='landscape';
@@ -1916,7 +1968,7 @@ document.getElementById('sceneTabs').addEventListener('click', e=>{
 
 /* ----- EDITOR REACT ----- */
 function updateReactEditorVisibility(){
-  document.getElementById('reactEditor').classList.toggle('show', state.scene==='react');
+  document.getElementById('reactEditor').classList.toggle('show', state.scene==='react' || state.scene==='react2cam');
   document.getElementById('gameEditor').classList.toggle('show', state.scene==='game');
   document.getElementById('endEditor').classList.toggle('show', state.scene==='end');
   document.getElementById('irlEditor').classList.toggle('show', state.scene==='irl');
@@ -1927,9 +1979,14 @@ document.getElementById('endMessage').addEventListener('input', e=>{
 });
 function updateReactFields(){
   const isSeries = reactState.type==='series';
-  document.getElementById('seasonField').classList.toggle('hide', !isSeries);
-  document.getElementById('episodeField').classList.toggle('hide', !isSeries);
+  const isFree   = reactState.type==='free';
+  document.getElementById('seasonField').classList.toggle('hide', !isSeries || isFree);
+  document.getElementById('episodeField').classList.toggle('hide', !isSeries || isFree);
   document.getElementById('titleLabel').textContent = isSeries ? 'Título da série' : 'Título do filme';
+  const titleFieldEl = document.getElementById('reactTitle').closest('.field');
+  if (titleFieldEl) titleFieldEl.classList.toggle('hide', isFree);
+  const noteFieldEl  = document.getElementById('reactNote').closest('.field');
+  if (noteFieldEl)  noteFieldEl.classList.toggle('hide', isFree);
 }
 document.getElementById('reactTypeSeg').addEventListener('click', e=>{
   if(e.target.dataset.rtype){
@@ -2116,6 +2173,7 @@ const SCENE_LABELS = {
   game:      '🎮 Jogo',
   react:     '🎬 React (filme/série)',
   reactfree: '▶️ React Livre',
+  react2cam: '👥 React 2 Cams',
   chatting:  '💬 Just Chatting',
   irl:       '📍 IRL',
   start:     '⏳ Começando',
