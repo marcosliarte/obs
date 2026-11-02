@@ -59,7 +59,7 @@ Vou usar a cena de Jogo como exemplo. Pras outras é igual, só muda a URL.
 - Nome: "Overlay"
 - **URL:** cole isso (troque `SEUCANAL`):
   ```
-  https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
+  https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=liarteee&kick=liart3&hide_live=1
   ```
 - **Largura:** 1920
 - **Altura:** 1080
@@ -109,27 +109,27 @@ Copie e cole no campo URL da Browser Source. **Substitua `SEUCANAL` pelo seu nic
 
 ### Cena de Jogo
 ```
-https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
+https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=liarteee&kick=liart3&hide_live=1
 ```
 
 ### Cena de React (Filme)
 ```
-https://obs-bice.vercel.app/?scene=react&format=landscape&obs=1&twitch=SEUCANAL&rtype=movie&rtitle=Interestelar&hide_live=1
+https://obs-bice.vercel.app/?scene=react&format=landscape&obs=1&twitch=liarteee&kick=liart3&rtype=movie&rtitle=Interestelar&hide_live=1
 ```
 
 ### Cena de React (Série) — exemplo Breaking Bad T3 E7
 ```
-https://obs-bice.vercel.app/?scene=react&format=landscape&obs=1&twitch=SEUCANAL&rtype=series&rtitle=Breaking%20Bad&rseason=3&repisode=7&hide_live=1
+https://obs-bice.vercel.app/?scene=react&format=landscape&obs=1&twitch=liarteee&kick=liart3&rtype=series&rtitle=Breaking%20Bad&rseason=3&repisode=7&hide_live=1
 ```
 
 ### Cena de React Livre (qualquer vídeo, sem editor)
 ```
-https://obs-bice.vercel.app/?scene=reactfree&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
+https://obs-bice.vercel.app/?scene=reactfree&format=landscape&obs=1&twitch=liarteee&kick=liart3&hide_live=1
 ```
 
 ### Just Chatting
 ```
-https://obs-bice.vercel.app/?scene=chatting&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1
+https://obs-bice.vercel.app/?scene=chatting&format=landscape&obs=1&twitch=liarteee&kick=liart3&hide_live=1
 ```
 
 ### Começando (tela cheia, não precisa de webcam)
@@ -149,7 +149,7 @@ https://obs-bice.vercel.app/?scene=end&format=landscape&obs=1
 
 ### IRL (live de rua — câmera ocupa tudo)
 ```
-https://obs-bice.vercel.app/?scene=irl&format=landscape&obs=1&twitch=SEUCANAL&irl_loc=Praia%20de%20Copacabana
+https://obs-bice.vercel.app/?scene=irl&format=landscape&obs=1&twitch=liarteee&kick=liart3&irl_loc=Praia%20de%20Copacabana
 ```
 
 > Aqui eu deixei o "AO VIVO" porque ele é parte do design da IRL. Se quiser tirar, adicione `&hide_live=1`.
@@ -162,7 +162,7 @@ https://obs-bice.vercel.app/?scene=irl&format=landscape&obs=1&twitch=SEUCANAL&ir
 Mesma lógica, só troca `format=landscape` por `format=portrait` e usa resolução 1080×1920 no Browser Source. Exemplo:
 
 ```
-https://obs-bice.vercel.app/?scene=game&format=portrait&obs=1&twitch=SEUCANAL&hide_live=1
+https://obs-bice.vercel.app/?scene=game&format=portrait&obs=1&twitch=liarteee&kick=liart3&hide_live=1
 ```
 
 ---
@@ -227,7 +227,7 @@ Junte no final do link com `&`:
 **Exemplo da hora:** cena de jogo, com chat da Twitch, suas 3 redes, cor rosa, sem AO VIVO:
 
 ```
-https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=SEUCANAL&hide_live=1&s_tiktok=meunick&s_instagram=meunick&s_youtube=meucanal&color=ff0080
+https://obs-bice.vercel.app/?scene=game&format=landscape&obs=1&twitch=liarteee&kick=liart3&hide_live=1&s_tiktok=meunick&s_instagram=meunick&s_youtube=meucanal&color=ff0080
 ```
 
 ---
@@ -239,7 +239,7 @@ Antes de dar OK, confirme:
 - [ ] Resolução do Browser Source = 1920×1080 (Twitch) ou 1080×1920 (TikTok)
 - [ ] URL termina em `&obs=1` (sem isso, fundos não ficam transparentes)
 - [ ] Ordem na lista: Overlay no topo, webcam embaixo
-- [ ] `twitch=SEUCANAL` está com o nick correto (sem @, minúsculo)
+- [ ] `twitch=liarteee&kick=liart3` está com o nick correto (sem @, minúsculo)
 - [ ] Webcam encaixada no quadradinho desenhado pelo overlay
 - [ ] Jogo/tela posicionado no espaço grande à esquerda
 

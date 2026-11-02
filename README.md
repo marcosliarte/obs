@@ -65,7 +65,8 @@ Selecione a plataforma ativa no dropdown e preencha os campos de todas as plataf
 | Plataforma | Como funciona |
 |------------|--------------|
 | Twitch | Conexão direta via tmi.js (anônima, só leitura) |
-| Kick | iframe do chat oficial do Kick |
+| Kick | Conexão direta ao chat do Kick via websocket (anônima, só leitura) |
+| Twitch + Kick | As duas plataformas juntas na mesma janela, com selo T/K em cada mensagem |
 | YouTube Live | iframe do live chat (precisa do ID do vídeo) |
 | TikTok / URL | iframe de qualquer URL de widget (StreamElements, Streamlabs, etc.) |
 | Simulado | Mensagens fake para preview no painel |
@@ -114,6 +115,10 @@ O overlay usa um canvas para desenhar o fundo e preservar a transparência nas j
 | `format` | `landscape` · `portrait` | Formato |
 | `hide_live` | `1` | Esconde o badge "AO VIVO" |
 | `square` | `1` | Remove cantos arredondados |
+| `twitch` | canal | Força o chat da Twitch nesse canal (prioridade sobre o painel) |
+| `kick` | canal | Força o chat do Kick nesse canal |
+| `kickroom` | número | ID do chatroom do Kick, se a descoberta automática falhar |
+| `chat` | `twitch` `kick` `multi` `none` | Força o modo de chat |
 
 ---
 

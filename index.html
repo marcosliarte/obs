@@ -294,7 +294,15 @@
   }
   @keyframes cmsgIn { from { opacity:0; transform: translateY(8px); filter: blur(4px);} to {opacity:1; transform:none; filter:none;} }
   .cmsg-user { font-size: 11px; font-weight: 700; color: var(--cu, var(--accent)); letter-spacing: 0.02em; }
-  .cmsg-text { font-size: 12px; color: var(--text); line-height: 1.42; }
+  .cmsg-text { font-size: 12px; color: var(--text); line-height: 1.42; word-break: break-word; }
+  .cmsg-head { display: flex; align-items: center; gap: 5px; }
+  .cmsg-plat {
+    width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 900; line-height: 1; color: #000;
+  }
+  .cmsg-plat.twitch { background: #9146ff; color: #fff; }
+  .cmsg-plat.kick   { background: #53fc18; color: #000; }
 
   /* ===================== SOCIAL BADGES (dentro do canto inferior da webcam) ===================== */
   .social-badges {
@@ -627,6 +635,7 @@
       <option value="test">Simulado (demo)</option>
       <option value="twitch">Twitch</option>
       <option value="kick">Kick</option>
+      <option value="multi">Twitch + Kick (juntos)</option>
       <option value="youtube">YouTube Live</option>
       <option value="tiktok">TikTok (URL widget)</option>
       <option value="url">URL personalizada</option>
@@ -635,6 +644,7 @@
     <input type="text" id="twitchChannel" placeholder="canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:120px; outline:none;">
     <span style="font-size:11px; color:var(--text-dim);">Kick:</span>
     <input type="text" id="kickChannel" placeholder="canal (sem @)" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:120px; outline:none;">
+    <input type="text" id="kickChatroomId" placeholder="chatroom ID (auto)" title="Preenchido automaticamente. Se ficar vazio, abra kick.com/api/v2/channels/SEUCANAL e copie o número de chatroom → id" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:120px; outline:none;">
     <span style="font-size:11px; color:var(--text-dim);">YouTube:</span>
     <input type="text" id="ytVideoId" placeholder="ID do vídeo" style="background:var(--bg-soft); border:1px solid var(--panel-border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:inherit; font-size:12px; width:140px; outline:none;">
     <span style="font-size:11px; color:var(--text-dim);">TikTok/URL:</span>
@@ -778,10 +788,12 @@ const gameState = { name: 'SEU JOGO AQUI', nick: '@seunick' };
 
 /* estado do chat (precisa existir ANTES de ler os params da URL) */
 const TWITCH = {
-  channel: null, client: null, containers: new Set(), maxMsgs: 12, scriptPromise: null
+  channel: 'liarteee', client: null, connecting: false, containers: new Set(), maxMsgs: 12, scriptPromise: null
 };
-/* modo de chat: 'none' | 'test' | 'twitch' | 'kick' | 'youtube' | 'tiktok' | 'url' */
-const CHAT = { mode: 'test', url: '', kickChannel: '', ytVideoId: '' };
+/* modo de chat: 'none' | 'test' | 'twitch' | 'kick' | 'multi' | 'youtube' | 'tiktok' | 'url' */
+const CHAT = { mode: 'multi', url: '', kickChannel: 'liart3', kickChatroomId: '73203653', ytVideoId: '' };
+/* conexão nativa com o chat do Kick (websocket Pusher, só leitura) */
+const KICK = { ws: null, room: null, pingTimer: null, retryTimer: null };
 
 /* fundo: type = 'none' | 'solid' | 'gradient' | 'image' */
 const bg = {
@@ -1434,8 +1446,11 @@ function applyConfig(d, keepSceneFormat) {
   if (d.social)     Object.assign(social, d.social);
   if (d.SP)         { SP.enabled = !!d.SP.enabled; if(d.SP.clientId) SP.clientId = d.SP.clientId; if('current' in d.SP) SP.current = d.SP.current; }
   if (d.endState)   Object.assign(endState, d.endState);
+  const _prevTwitch = TWITCH.channel;
   if (d.CHAT)       Object.assign(CHAT, d.CHAT);
-  if (d.TWITCH && d.TWITCH.channel) TWITCH.channel = d.TWITCH.channel;
+  if (d.TWITCH && 'channel' in d.TWITCH) TWITCH.channel = d.TWITCH.channel || null;
+  applyChatUrlParams();
+  if (TWITCH.channel !== _prevTwitch) disconnectTwitch();
   if (d.bg)         Object.assign(bg, d.bg);
   document.body.classList.toggle('hide-live', !!d.hideLive);
   document.body.classList.toggle('square',    !!d.square);
@@ -1489,6 +1504,21 @@ render = function() {
   if (!isOBS) saveToStorage();
 };
 
+/* Chat pela URL: ?twitch=canal&kick=canal (&chat=twitch|kick|multi|none)
+   Tem prioridade sobre o Supabase, então o link do OBS sempre funciona. */
+function applyChatUrlParams(){
+  const clean = v => v.trim().toLowerCase().replace(/^@/, '');
+  const t = params.get('twitch'), k = params.get('kick'), m = params.get('chat');
+  if (t) TWITCH.channel = clean(t);
+  if (k) { const kc = clean(k); if (kc !== CHAT.kickChannel) CHAT.kickChatroomId = ''; CHAT.kickChannel = kc; }
+  if (params.get('kickroom')) CHAT.kickChatroomId = params.get('kickroom').trim();
+  if (m) CHAT.mode = m;
+  else if (t && k) CHAT.mode = 'multi';
+  else if (t) CHAT.mode = 'twitch';
+  else if (k) CHAT.mode = 'kick';
+}
+applyChatUrlParams();
+
 /* No OBS: define class obs e pega scene/format da URL */
 if (isOBS) {
   document.body.classList.add('obs');
@@ -1519,13 +1549,16 @@ const chatColors = ['#a78bfa','#fbbf24','#f472b6','#34d399','#60a5fa','#fb923c',
 function userColor(name){let h=0;for(let i=0;i<name.length;i++)h=name.charCodeAt(i)+((h<<5)-h);return chatColors[Math.abs(h)%chatColors.length];}
 
 /* Renderiza uma mensagem (vinda da Twitch ou do mock) no contêiner */
-function renderChatMessage(container, user, text, max){
+function renderChatMessage(container, user, text, max, platform, color){
   const safeUser = String(user).slice(0, 32);
   const safeText = escapeHtml(String(text).slice(0, 300));
   const el = document.createElement('div');
   el.className = 'cmsg';
-  el.style.setProperty('--cu', userColor(safeUser));
-  el.innerHTML = `<span class="cmsg-user">${escapeHtml(safeUser)}</span> <span class="cmsg-text">${safeText}</span>`;
+  const c = (typeof color === 'string' && /^#[0-9a-f]{3,8}$/i.test(color)) ? color : userColor(safeUser);
+  el.style.setProperty('--cu', c);
+  const plat = platform === 'twitch' ? '<span class="cmsg-plat twitch">T</span>'
+             : platform === 'kick'   ? '<span class="cmsg-plat kick">K</span>' : '';
+  el.innerHTML = `<span class="cmsg-head">${plat}<span class="cmsg-user">${escapeHtml(safeUser)}</span></span> <span class="cmsg-text">${safeText}</span>`;
   container.prepend(el);
   while(container.children.length > max) container.lastChild.remove();
 }
@@ -1544,34 +1577,116 @@ function loadTmi(){
   return TWITCH.scriptPromise;
 }
 
+/* Envia uma mensagem real para todas as janelas de chat visíveis */
+function broadcastChat(platform, user, text, color){
+  TWITCH.containers.forEach(container => {
+    if (document.body.contains(container)) {
+      renderChatMessage(container, user, text, TWITCH.maxMsgs, CHAT.mode === 'multi' ? platform : null, color);
+    } else {
+      TWITCH.containers.delete(container);
+    }
+  });
+}
+
+function disconnectTwitch(){
+  if (TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} }
+  TWITCH.client = null; TWITCH.connecting = false;
+}
+
 /* Conecta ao chat da Twitch (anônimo, só leitura) */
 async function connectTwitchChat(channelName){
-  if (!channelName) return false;
+  if (!channelName || TWITCH.connecting || TWITCH.client) return false;
+  TWITCH.connecting = true;
   try {
     await loadTmi();
-    if (TWITCH.client) { try { TWITCH.client.disconnect(); } catch(e){} TWITCH.client = null; }
     const client = new window.tmi.Client({
       channels: [channelName],
       connection: { reconnect: true, secure: true },
       options: { skipUpdatingEmotesets: true }
     });
     client.on('message', (channel, tags, message, self) => {
+      if (client !== TWITCH.client) return; /* cliente antigo, ignorado */
       const user = tags['display-name'] || tags.username || 'usuário';
-      TWITCH.containers.forEach(container => {
-        if (document.body.contains(container)) {
-          renderChatMessage(container, user, message, TWITCH.maxMsgs);
-        } else {
-          TWITCH.containers.delete(container);
-        }
-      });
+      broadcastChat('twitch', user, message, tags.color);
     });
-    await client.connect();
     TWITCH.client = client;
+    await client.connect();
+    console.log('[Twitch chat] conectado em #' + channelName);
     return true;
   } catch(e){
-    console.warn('[Twitch chat] falhou, usando mock:', e);
+    console.warn('[Twitch chat] falhou:', e);
+    TWITCH.client = null;
     return false;
+  } finally {
+    TWITCH.connecting = false;
   }
+}
+
+/* ---------- KICK nativo (Pusher websocket público, só leitura) ---------- */
+const KICK_PUSHER = 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false';
+
+/* IDs de chatroom já conhecidos (evita depender da API do Kick) */
+const KNOWN_KICK_ROOMS = { liart3: '73203653' };
+
+async function resolveKickChatroom(slug){
+  if (CHAT.kickChatroomId) return CHAT.kickChatroomId;
+  if (KNOWN_KICK_ROOMS[slug]) return (CHAT.kickChatroomId = KNOWN_KICK_ROOMS[slug]);
+  for (const url of [`https://kick.com/api/v2/channels/${slug}`, `https://kick.com/api/v1/channels/${slug}`]) {
+    try {
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const id = j && j.chatroom && j.chatroom.id;
+      if (id) {
+        CHAT.kickChatroomId = String(id);
+        const inp = document.getElementById('kickChatroomId');
+        if (inp) inp.value = CHAT.kickChatroomId;
+        if (!isOBS) saveToStorage(); /* guarda pro OBS não precisar descobrir */
+        return CHAT.kickChatroomId;
+      }
+    } catch(e){ /* bloqueado (CORS/Cloudflare) — tenta o próximo */ }
+  }
+  console.warn('[Kick chat] não consegui descobrir o chatroom ID de "' + slug + '". Preencha manualmente no painel.');
+  return null;
+}
+
+function disconnectKick(){
+  clearInterval(KICK.pingTimer); clearTimeout(KICK.retryTimer);
+  if (KICK.ws) { KICK.ws.onclose = null; try { KICK.ws.close(); } catch(_){} }
+  KICK.ws = null; KICK.room = null;
+}
+
+/* remove códigos de emote do Kick: [emote:123:nome] → nome */
+function kickText(s){ return String(s || '').replace(/\[emote:\d+:([^\]]+)\]/g, '$1'); }
+
+async function connectKickChat(slug){
+  if (!slug) return;
+  const room = await resolveKickChatroom(slug);
+  if (!room) return;
+  if (KICK.ws && KICK.room === room) return; /* já conectado nessa sala */
+  disconnectKick();
+  KICK.room = room;
+  const ws = new WebSocket(KICK_PUSHER);
+  KICK.ws = ws;
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel: `chatrooms.${room}.v2` } }));
+    KICK.pingTimer = setInterval(() => { try { ws.send(JSON.stringify({ event: 'pusher:ping', data: {} })); } catch(_){} }, 60000);
+    console.log('[Kick chat] conectado na sala ' + room);
+  };
+  ws.onmessage = ev => {
+    let msg; try { msg = JSON.parse(ev.data); } catch(_) { return; }
+    if (msg.event === 'pusher:ping') { ws.send(JSON.stringify({ event: 'pusher:pong', data: {} })); return; }
+    if (msg.event !== 'App\\Events\\ChatMessageEvent') return;
+    let d; try { d = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data; } catch(_) { return; }
+    const s = d.sender || {};
+    broadcastChat('kick', s.username || 'usuário', kickText(d.content), s.identity && s.identity.color);
+  };
+  ws.onclose = () => {
+    clearInterval(KICK.pingTimer);
+    if (KICK.ws !== ws) return;
+    KICK.ws = null;
+    KICK.retryTimer = setTimeout(() => connectKickChat(slug), 5000); /* reconecta sozinho */
+  };
 }
 
 let chatTimers = [];
@@ -1588,12 +1703,6 @@ function startChat(container, max=10){
     if (body) body.innerHTML = `<iframe src="${src}" style="width:100%;height:100%;border:0;background:transparent;" allowtransparency="true" frameborder="0" scrolling="no"></iframe>`;
   }
 
-  // KICK: iframe do chat oficial
-  if (CHAT.mode === 'kick' && CHAT.kickChannel){
-    const ch = encodeURIComponent(CHAT.kickChannel.toLowerCase().replace(/^@/,''));
-    setIframe(`https://kick.com/popout/${ch}/chat`);
-    return;
-  }
 
   // YOUTUBE LIVE: iframe do chat ao vivo (requer ID do vídeo)
   if (CHAT.mode === 'youtube' && CHAT.ytVideoId){
@@ -1609,12 +1718,16 @@ function startChat(container, max=10){
     return;
   }
 
-  // TWITCH: conecta via tmi.js
-  if (CHAT.mode === 'twitch' && TWITCH.channel){
+  // TWITCH / KICK / AMBOS: mensagens reais desenhadas no estilo do overlay
+  const wantTwitch = (CHAT.mode === 'twitch' || CHAT.mode === 'multi') && TWITCH.channel;
+  const wantKick   = (CHAT.mode === 'kick'   || CHAT.mode === 'multi') && CHAT.kickChannel;
+  if (wantTwitch || wantKick){
     TWITCH.containers.add(container);
-    if (!TWITCH.client) connectTwitchChat(TWITCH.channel);
+    if (wantTwitch) connectTwitchChat(TWITCH.channel); else disconnectTwitch();
+    if (wantKick)   connectKickChat(CHAT.kickChannel);  else disconnectKick();
     return;
   }
+  disconnectTwitch(); disconnectKick();
 
   // SIMULADO (fake / demo): mensagens animadas para preview
   function tick(){
@@ -1927,6 +2040,8 @@ const scenes = {
    RENDER
 ========================================================================= */
 function render(){
+  const _oldChat = document.getElementById('chatBox');
+  const _oldMsgs = _oldChat ? _oldChat.innerHTML : '';
   clearChat();
   stage.className = 'stage ' + state.format;
   stage.innerHTML = scenes[state.scene](state.format);
@@ -1935,7 +2050,10 @@ function render(){
   if (stage.querySelector('.info-strip')) stage.classList.add('has-infobar');
   if (stage.querySelector('.irl-location')) stage.classList.add('has-irl-pin');
   const chatBox = document.getElementById('chatBox');
-  if (chatBox) startChat(chatBox, state.format==='portrait' ? (state.scene==='react'?4:8) : 12);
+  if (chatBox) {
+    if (_oldMsgs && ['twitch','kick','multi'].includes(CHAT.mode)) chatBox.innerHTML = _oldMsgs;
+    startChat(chatBox, state.format==='portrait' ? (state.scene==='react'?4:8) : 12);
+  }
   renderSpotifyPill();
   renderSocialBadges();
 }
@@ -2069,21 +2187,23 @@ wireSocial('youtube', 'socYtOn', 'socYt');
 document.getElementById('twitchChannel').addEventListener('change', e=>{
   const name = e.target.value.trim().toLowerCase().replace(/^@/, '');
   TWITCH.channel = name || null;
-  // se desconecta o cliente atual e re-renderiza pra reconectar
-  if (TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} TWITCH.client = null; }
-  TWITCH.containers.clear();
+  disconnectTwitch(); /* re-renderiza e reconecta no canal novo */
   render();
 });
 
 /* ----- MODO DE CHAT HANDLERS ----- */
 document.getElementById('chatMode').addEventListener('change', e=>{
   CHAT.mode = e.target.value;
-  if (CHAT.mode !== 'twitch' && TWITCH.client) { try { TWITCH.client.disconnect(); } catch(_){} TWITCH.client = null; }
   render();
 });
 document.getElementById('kickChannel').addEventListener('change', e=>{
   CHAT.kickChannel = e.target.value.trim().toLowerCase().replace(/^@/,'');
-  saveToStorage(); render();
+  CHAT.kickChatroomId = ''; document.getElementById('kickChatroomId').value = '';
+  disconnectKick(); render();
+});
+document.getElementById('kickChatroomId').addEventListener('change', e=>{
+  CHAT.kickChatroomId = e.target.value.replace(/\D/g,'');
+  disconnectKick(); render();
 });
 document.getElementById('ytVideoId').addEventListener('input', e=>{
   CHAT.ytVideoId = e.target.value.trim();
@@ -2250,6 +2370,7 @@ function syncUI() {
   document.getElementById('twitchChannel').value = TWITCH.channel || '';
   document.getElementById('chatMode').value      = CHAT.mode;
   document.getElementById('kickChannel').value   = CHAT.kickChannel || '';
+  document.getElementById('kickChatroomId').value = CHAT.kickChatroomId || '';
   document.getElementById('ytVideoId').value     = CHAT.ytVideoId || '';
   document.getElementById('chatUrl').value       = CHAT.url || '';
   document.getElementById('hideLiveToggle').checked = document.body.classList.contains('hide-live');
@@ -2281,10 +2402,8 @@ function syncUI() {
     if(ok && SP.enabled) spStartPolling();
   }
 
-  if (d) {
-    /* OBS: preserva scene/format que vieram da URL */
-    applyConfig(d, isOBS);
-  }
+  /* OBS: preserva scene/format que vieram da URL (e chat da URL, se houver) */
+  applyConfig(d || {}, isOBS);
 
   /* aplica cor depois do applyConfig (garante que --accent esteja certo) */
   applyColor(state.color);
