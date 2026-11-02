@@ -303,6 +303,11 @@
   }
   .cmsg-plat.twitch { background: #9146ff; color: #fff; }
   .cmsg-plat.kick   { background: #53fc18; color: #000; }
+  .cmsg-hint {
+    margin: auto; text-align: center; padding: 10px 14px; max-width: 85%;
+    font-size: 11px; color: var(--text-dim); border: 1px dashed var(--panel-border);
+    border-radius: 8px; background: rgba(0,0,0,0.25);
+  }
 
   /* ===================== SOCIAL BADGES (dentro do canto inferior da webcam) ===================== */
   .social-badges {
@@ -1559,6 +1564,7 @@ function renderChatMessage(container, user, text, max, platform, color){
   const plat = platform === 'twitch' ? '<span class="cmsg-plat twitch">T</span>'
              : platform === 'kick'   ? '<span class="cmsg-plat kick">K</span>' : '';
   el.innerHTML = `<span class="cmsg-head">${plat}<span class="cmsg-user">${escapeHtml(safeUser)}</span></span> <span class="cmsg-text">${safeText}</span>`;
+  container.querySelectorAll('.cmsg-hint').forEach(e => e.remove());
   container.prepend(el);
   while(container.children.length > max) container.lastChild.remove();
 }
@@ -1725,9 +1731,28 @@ function startChat(container, max=10){
     TWITCH.containers.add(container);
     if (wantTwitch) connectTwitchChat(TWITCH.channel); else disconnectTwitch();
     if (wantKick)   connectKickChat(CHAT.kickChannel);  else disconnectKick();
+    if (!isOBS && !container.querySelector('.cmsg')) {
+      const quem = [wantTwitch && 'Twitch @' + TWITCH.channel, wantKick && 'Kick @' + CHAT.kickChannel].filter(Boolean).join(' + ');
+      setChatHint(container, 'Conectado ao chat real (' + quem + ') — aguardando mensagens…');
+    }
     return;
   }
   disconnectTwitch(); disconnectKick();
+
+  // Mensagens falsas SÓ no modo "Simulado". Qualquer outro modo sem
+  // configuração fica vazio (no painel mostra um aviso do que falta).
+  if (CHAT.mode !== 'test'){
+    const falta = {
+      twitch: 'Digite o canal da Twitch no painel',
+      kick: 'Digite o canal do Kick no painel',
+      multi: 'Digite os canais da Twitch e do Kick no painel',
+      youtube: 'Cole o ID do vídeo da live no painel',
+      tiktok: 'Cole a URL do widget no painel',
+      url: 'Cole a URL do widget no painel'
+    }[CHAT.mode] || 'Escolha uma plataforma de chat no painel';
+    if (!isOBS) setChatHint(container, falta);
+    return;
+  }
 
   // SIMULADO (fake / demo): mensagens animadas para preview
   function tick(){
@@ -1737,6 +1762,15 @@ function startChat(container, max=10){
     chatTimers.push(setTimeout(tick, 1400 + Math.random()*2200));
   }
   tick();
+}
+
+/* Aviso discreto dentro do chat (só no painel, nunca vai pro OBS) */
+function setChatHint(container, text){
+  container.querySelectorAll('.cmsg-hint').forEach(e => e.remove());
+  const el = document.createElement('div');
+  el.className = 'cmsg-hint';
+  el.textContent = text;
+  container.appendChild(el);
 }
 function clearChat(){
   chatTimers.forEach(clearTimeout); chatTimers=[];
@@ -2041,7 +2075,7 @@ const scenes = {
 ========================================================================= */
 function render(){
   const _oldChat = document.getElementById('chatBox');
-  const _oldMsgs = _oldChat ? _oldChat.innerHTML : '';
+  const _oldMsgs = (_oldChat && _oldChat.dataset.mode === CHAT.mode) ? _oldChat.innerHTML : '';
   clearChat();
   stage.className = 'stage ' + state.format;
   stage.innerHTML = scenes[state.scene](state.format);
@@ -2051,7 +2085,11 @@ function render(){
   if (stage.querySelector('.irl-location')) stage.classList.add('has-irl-pin');
   const chatBox = document.getElementById('chatBox');
   if (chatBox) {
-    if (_oldMsgs && ['twitch','kick','multi'].includes(CHAT.mode)) chatBox.innerHTML = _oldMsgs;
+    chatBox.dataset.mode = CHAT.mode;
+    if (_oldMsgs && ['twitch','kick','multi'].includes(CHAT.mode)) {
+      chatBox.innerHTML = _oldMsgs;
+      chatBox.querySelectorAll('.cmsg-hint').forEach(e => e.remove());
+    }
     startChat(chatBox, state.format==='portrait' ? (state.scene==='react'?4:8) : 12);
   }
   renderSpotifyPill();
