@@ -1,132 +1,92 @@
-# Stream Overlay Kit — Minimal
+# StreamKit
 
-Kit de overlays minimalistas para transmissões ao vivo, pronto para **Twitch 16:9** e **TikTok 9:16**. Um único arquivo HTML, sem instalação, sem dependências, com painel de controle ao vivo via Supabase.
+Overlays para OBS em **Twitch 16:9** e **TikTok 9:16**, com painel de controle ao vivo. Sem build e sem instalação: é HTML, CSS e JS puros, hospedados no GitHub Pages. A configuração é sincronizada pelo Supabase.
 
----
+O painel mostra um preview em escala que é **idêntico** ao que o OBS renderiza: as cenas são desenhadas em pixels na resolução nativa (1920×1080 / 1080×1920).
 
-## Cenas disponíveis
+## Cenas
 
-| Cena | `scene=` | Descrição |
-|------|----------|-----------|
-| Jogo | `game` | Gameplay + webcam + chat + info de jogo |
-| React | `react` | Janela de vídeo + webcam + chat, título de filme/série editável |
-| React Livre | `reactfree` | Igual ao React, sem título — para qualquer conteúdo |
-| Just Chatting | `chatting` | Câmera grande + chat ao vivo |
-| IRL | `irl` | Câmera full-screen com pin de localização |
-| Começando | `start` | Tela de abertura com ticker e redes sociais |
-| Volto já | `brb` | Tela de pausa com ticker e redes sociais |
-| Fim | `end` | Tela de encerramento com mensagem e redes sociais configuráveis |
+| Cena | `scene=` | Conteúdo |
+|------|----------|----------|
+| Jogo | `game` | Captura 16:9, webcam, chat, faixa "Jogando", rodapé com widgets |
+| React | `react` | Vídeo, webcam, chat, faixa com filme ou série (temporada/episódio) |
+| React livre | `reactfree` | Igual ao React, sem título |
+| React 2 cams | `react2cam` | Vídeo + duas webcams, sem chat |
+| Just Chatting | `chatting` | Webcam grande + chat |
+| IRL | `irl` | Câmera em tela cheia com localização |
+| Começando | `start` | Tela cheia com contagem regressiva e letreiro |
+| Volto já | `brb` | Tela cheia com contagem regressiva e letreiro |
+| Encerramento | `end` | Tela cheia com mensagem de despedida e redes |
 
-Cada cena funciona nos dois formatos (16:9 e 9:16) com layout otimizado.
+## Recursos
 
----
+- **Chat real** da Twitch e do Kick (separados ou juntos), com emotes, selos (streamer, mod, VIP, sub), filtro de comandos, bots e palavras, e remoção automática de mensagens apagadas ou de usuários banidos. YouTube e widgets externos entram por iframe.
+- **Alertas** na tela para inscrição, reinscrição, sub de presente (agrupa "gift bombs"), raid/host e bits/kicks, com som. Botões de teste no painel disparam o alerta também no OBS.
+- **Destaque do chat:** clique numa mensagem no preview para fixá-la na tela.
+- **Barra de meta** com botões +1/+5. Opcionalmente soma subs sozinha.
+- **Contagem regressiva** nas telas Começando e Volto já (5, 10 ou 15 min, ou até um horário).
+- **Tocando agora** do Spotify com capa do álbum (OAuth PKCE, sem backend).
+- **Redes sociais**, cor de destaque com contraste automático do texto, fundo (cor, gradiente ou imagem) recortado nas janelas de câmera e jogo.
+- **Textos editáveis** das telas cheias (título, destaque, texto, letreiro).
+- **Vários overlays** com `?id=` e **chave de escrita** para impedir que outras pessoas alterem a sua config.
 
-## Como funciona
+## Uso rápido
 
-O overlay é uma **moldura transparente** que fica em cima das suas fontes no OBS. Os ícones de câmera/jogo/vídeo são marcadores de posição — você encaixa suas fontes reais embaixo do overlay.
+1. Abra o painel: `https://marcosliarte.github.io/obs/`
+2. Configure no painel. Tudo é salvo automaticamente.
+3. Clique em **Links para o OBS** e cole cada link numa fonte **Navegador** do OBS, na resolução indicada.
+4. Coloque webcam, jogo e vídeo **abaixo** do overlay na lista de fontes, encaixados nas janelas.
 
-As configurações ficam salvas no **Supabase** (nuvem). O OBS faz polling a cada 2,5 s e aplica qualquer mudança feita no painel sem precisar recarregar a cena.
+O passo a passo completo está em [COMO-USAR.md](COMO-USAR.md).
 
----
+## Parâmetros de URL
 
-## Configurando no OBS
+| Parâmetro | Valores | Efeito |
+|-----------|---------|--------|
+| `obs` | `1` | Modo OBS: sem painel, fundo transparente |
+| `scene` | ver tabela de cenas | Cena (modo OBS) |
+| `format` | `landscape` · `portrait` | Formato (modo OBS) |
+| `id` | texto | Usa outra configuração no Supabase (padrão `default`) |
+| `twitch` / `kick` | canal | Força o canal do chat no OBS |
+| `kickroom` | número | Chatroom ID do Kick, se a descoberta automática falhar |
+| `chat` | `none` `test` `twitch` `kick` `multi` `youtube` `tiktok` `url` | Força a fonte do chat no OBS |
+| `hide_live` | `1` | Oculta o selo "Ao vivo" |
+| `square` | `1` | Cantos retos nos elementos |
+| `debug` | `1` | Mostra versão e horário de carregamento no canto |
+| `offline` | `1` | Não acessa a rede (usado nos testes) |
 
-1. Para **cada cena**, adicione uma **Fonte → Navegador (Browser Source)**
-2. Use a URL copiada pelo botão **🔗 Links OBS** no painel
-3. Resolução: `1920 × 1080` (Twitch) ou `1080 × 1920` (TikTok)
-4. Marque **"Atualizar navegador quando a cena ficar ativa"**
-5. Posicione webcam, jogo e vídeo **abaixo** do overlay na lista de fontes
+## Segurança
 
-A URL de cada cena tem o formato:
+A chave do Supabase no código é pública por natureza. Sem proteção, qualquer pessoa com ela consegue alterar o que aparece na sua live. Para fechar isso, rode [`supabase/setup.sql`](supabase/setup.sql) e informe a chave de escrita no painel, na seção **Segurança**. O arquivo `teste-supabase.html` confere leitura, escrita e se a proteção está ativa.
+
+## Estrutura
+
 ```
-https://seu-dominio/?obs=1&scene=game&format=landscape
+index.html            marcação do painel e do palco
+css/overlay.css       visual do overlay (o que vai pro OBS)
+css/panel.css         visual do painel
+js/core.js            funções puras: config, chat, emotes, filtros, tempo (testável no Node)
+js/env.js             parâmetros de URL e estado global da config
+js/store.js           leitura e escrita no Supabase
+js/chat.js            conexões Twitch/Kick, histórico, moderação, eventos
+js/alerts.js          fila de alertas e som
+js/spotify.js         OAuth PKCE e faixa atual
+js/scenes.js          layouts das cenas, widgets, fundo e escala
+js/panel.js           painel (campos com data-bind)
+js/main.js            inicialização e polling do OBS
+supabase/setup.sql    tabela, leitura pública e chave de escrita
+tests/                testes unitários, de renderização e de interação
 ```
 
----
+## Testes
 
-## Painel de controle
+Precisam de Node 18+ e Chrome ou Edge instalados. Não há dependências npm.
 
-Abra o `index.html` no navegador (ou via servidor HTTP) sem os parâmetros `?obs=1`. O painel no topo permite configurar tudo em tempo real:
+```bash
+npm test               # funções puras (node:test)
+npm run test:browser   # todas as cenas, nos 2 formatos, no Chrome headless
+npm run test:panel     # simula o uso do painel (digitar, clicar, salvar)
+npm run test:all
+```
 
-- **Formato** — Twitch 16:9 ou TikTok 9:16
-- **Cena** — alterna entre as 8 cenas
-- **Cor de destaque** — 6 presets + cor livre (aplicada instantaneamente)
-- **Chat** — selecione a plataforma ativa e preencha os dados de todas as plataformas de uma vez
-- **Spotify** — ative e conecte via OAuth PKCE (sem backend necessário)
-- **Fundo** — transparente, cor sólida, gradiente ou imagem por URL
-- **Estilo** — esconder badge "AO VIVO", bordas totalmente retangulares
-
----
-
-## Chat
-
-Selecione a plataforma ativa no dropdown e preencha os campos de todas as plataformas que você usa. As configurações persistem — você pode trocar de plataforma a qualquer momento sem redigitar.
-
-| Plataforma | Como funciona |
-|------------|--------------|
-| Twitch | Conexão direta via tmi.js (anônima, só leitura) |
-| Kick | Conexão direta ao chat do Kick via websocket (anônima, só leitura) |
-| Twitch + Kick | As duas plataformas juntas na mesma janela, com selo T/K em cada mensagem |
-| YouTube Live | iframe do live chat (precisa do ID do vídeo) |
-| TikTok / URL | iframe de qualquer URL de widget (StreamElements, Streamlabs, etc.) |
-| Simulado | Mensagens fake para preview no painel |
-
----
-
-## Spotify
-
-Integração via **OAuth PKCE** — sem backend, sem segredos expostos.
-
-**Configurar:**
-1. Crie um app em [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-2. Adicione a URL do painel como **Redirect URI** no app
-3. No painel: cole o **Client ID**, clique **Conectar** e autorize
-4. O balão "Tocando agora" aparece automaticamente quando uma música estiver tocando
-5. A faixa atual é salva no Supabase — o OBS recebe via polling, sem precisar de tokens
-
----
-
-## Redes sociais
-
-Configure no painel (seção **Redes sociais**) quais plataformas exibir e com qual @. Os badges aparecem:
-
-- Nas cenas **game / react / reactfree / IRL / Just Chatting**: abaixo ou ao lado da webcam
-- Nas cenas **Começando / Volto já / Fim**: centralizados na tela
-
----
-
-## Fundo no OBS
-
-O overlay usa um canvas para desenhar o fundo e preservar a transparência nas janelas de câmera/jogo/vídeo. Configure em **Fundo**:
-
-- **Transparente** — sem fundo, use a cor de cena do OBS
-- **Cor sólida** — cor preenchida com buraco nas janelas de câmera/jogo
-- **Gradiente** — gradiente linear com ângulo configurável
-- **Imagem (URL)** — imagem cover-fit com buraco nas janelas
-
----
-
-## Parâmetros da URL (avançado)
-
-| Parâmetro | Valores | Descrição |
-|-----------|---------|-----------|
-| `obs` | `1` | Modo OBS — esconde painel, fundo transparente |
-| `scene` | `game` `react` `reactfree` `chatting` `irl` `start` `brb` `end` | Cena |
-| `format` | `landscape` · `portrait` | Formato |
-| `hide_live` | `1` | Esconde o badge "AO VIVO" |
-| `square` | `1` | Remove cantos arredondados |
-| `twitch` | canal | Força o chat da Twitch nesse canal (prioridade sobre o painel) |
-| `kick` | canal | Força o chat do Kick nesse canal |
-| `kickroom` | número | ID do chatroom do Kick, se a descoberta automática falhar |
-| `chat` | `twitch` `kick` `multi` `none` | Força o modo de chat |
-
----
-
-## Arquivos
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `index.html` | Overlay completo + painel de controle |
-| `COMO-USAR.md` | Guia detalhado passo a passo |
-| `GUIA-OBS-TWITCH.md` | Configuração específica para Twitch |
-| `teste-supabase.html` | Diagnóstico de conexão com o Supabase |
+`node tests/smoke.js --shots pasta` salva screenshots de todas as cenas para revisão visual.

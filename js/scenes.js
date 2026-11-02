@@ -1,0 +1,416 @@
+/* =========================================================================
+   Cenas — layouts desenhados em pixels na resolução nativa
+   (1920×1080 / 1080×1920). O palco é escalado para caber na tela, então o
+   preview do painel é idêntico ao que o OBS mostra.
+
+   Janelas com .hole ficam transparentes: é ali que entram as fontes reais
+   do OBS (webcam, captura de jogo, vídeo). Os "slots" recebem os widgets
+   (Spotify, redes, meta, destaque).
+========================================================================= */
+const esc = SK.escapeHtml;
+let stageScale = 1;
+
+const px = (l, t, w, h) => `left:${l}px;top:${t}px;width:${w}px;height:${h}px;`;
+
+function hole(kind, pos, label, hint, opts = {}) {
+  const live = opts.live && !cfg.hideLive ? `<div class="live-badge"><i></i>Ao vivo</div>` : '';
+  return `
+    <div class="win win-${kind}${opts.accent ? ' is-accent' : ''}" style="${pos}">
+      <div class="win-body hole">
+        <div class="ph"><span class="ph-label">${label}</span><span class="ph-hint">${hint}</span></div>
+        ${live}
+      </div>
+    </div>`;
+}
+
+const camWin = (pos, label = 'Webcam') => hole('cam', pos, label, 'Dispositivo de captura de vídeo', { accent: true, live: true });
+const gameWin = pos => hole('game', pos, 'Captura de jogo', 'Game capture · 16:9');
+const videoWin = pos => hole('video', pos, reactPlaceholder(), 'Navegador · mídia · captura de tela');
+
+function chatWin(pos) {
+  return `
+    <div class="win win-chat" style="${pos}">
+      <div class="win-bar"><span class="bar-mark"></span><span class="bar-label">Chat</span><span class="bar-meta" data-clock></span></div>
+      <div class="win-body"><div class="chat" data-chat></div></div>
+    </div>`;
+}
+
+function infoStrip(pos, tag, titleHtml) {
+  return `
+    <div class="info" style="${pos}">
+      <span class="info-tag">${esc(tag)}</span>
+      <span class="info-title">${titleHtml}</span>
+      <span class="info-meta">${esc(cfg.gameState.nick)}</span>
+    </div>`;
+}
+
+function footerRow(pos) {
+  return `
+    <div class="footer-row" style="${pos}">
+      <div class="slot" data-slot="spotify"></div>
+      <div class="slot" data-slot="social"></div>
+      <div class="grow"></div>
+      <div class="slot" data-slot="goal"></div>
+    </div>`;
+}
+
+const slot = (name, pos) => `<div class="slot slot-abs" data-slot="${name}" style="${pos}"></div>`;
+
+/* ---------- textos da cena React ---------- */
+function reactPlaceholder() {
+  const r = cfg.reactState;
+  return r.type === 'free' ? 'Tela, vídeo ou qualquer fonte' : esc(r.title || 'Janela de vídeo');
+}
+function reactTag() {
+  return { series: 'Série', free: 'React', movie: 'Filme' }[cfg.reactState.type];
+}
+function reactTitleHtml(prefix) {
+  const r = cfg.reactState;
+  if (r.type === 'free') return `${prefix ? 'Reagindo ' : ''}<b>ao vivo</b>`;
+  let h = `${prefix ? 'Reagindo a ' : ''}<b>${esc(r.title || '—')}</b>`;
+  if (r.type === 'series') h += `<span class="sep"></span>T${esc(r.season || '1')} · E${esc(r.episode || '1')}`;
+  if (r.note) h += `<span class="sep"></span><span class="dim">${esc(r.note)}</span>`;
+  return h;
+}
+
+/* ---------- layouts ---------- */
+const L = {
+  /* paisagem: janela principal 16:9 (1400×788) + coluna direita 400px */
+  main: px(40, 40, 1400, 788),
+  cam: px(1480, 40, 400, 300),
+  chat: px(1480, 364, 400, 676),
+  info: px(40, 852, 1400, 72),
+  footer: px(40, 948, 1400, 92),
+  pinned: 'left:72px;top:72px;max-width:640px;',
+  /* retrato: blocos empilhados de 1000px de largura */
+  pTop: px(40, 40, 1000, 563),
+  pMid: px(40, 627, 1000, 563),
+  pInfo: px(40, 1214, 1000, 80),
+  pFooter: px(40, 1310, 1000, 172),
+  pChat: px(40, 1560, 1000, 320),
+  pPinned: 'left:72px;top:72px;max-width:760px;'
+};
+
+const Scenes = {
+  game(fmt) {
+    const g = cfg.gameState;
+    const title = `Jogando <b>${esc(g.name)}</b>`;
+    if (fmt === 'landscape') return gameWin(L.main) + camWin(L.cam) + chatWin(L.chat)
+      + infoStrip(L.info, 'Agora', title) + footerRow(L.footer) + slot('pinned', L.pinned);
+    return camWin(L.pTop) + gameWin(L.pMid) + infoStrip(L.pInfo, 'Agora', title)
+      + footerRow(L.pFooter) + chatWin(L.pChat) + slot('pinned', 'left:72px;top:659px;max-width:760px;');
+  },
+
+  react(fmt) {
+    if (fmt === 'landscape') return videoWin(L.main) + camWin(L.cam) + chatWin(L.chat)
+      + infoStrip(L.info, reactTag(), reactTitleHtml(true)) + footerRow(L.footer) + slot('pinned', L.pinned);
+    return videoWin(L.pTop) + camWin(L.pMid) + infoStrip(L.pInfo, reactTag(), reactTitleHtml(false))
+      + footerRow(L.pFooter) + chatWin(L.pChat) + slot('pinned', L.pPinned);
+  },
+
+  reactfree(fmt) {
+    const title = 'Reagindo <b>ao vivo</b>';
+    const video = pos => hole('video', pos, 'Tela, vídeo ou qualquer fonte', 'Navegador · mídia · captura de tela');
+    if (fmt === 'landscape') return video(L.main) + camWin(L.cam) + chatWin(L.chat)
+      + infoStrip(L.info, 'React', title) + footerRow(L.footer) + slot('pinned', L.pinned);
+    return video(L.pTop) + camWin(L.pMid) + infoStrip(L.pInfo, 'React', title)
+      + footerRow(L.pFooter) + chatWin(L.pChat) + slot('pinned', L.pPinned);
+  },
+
+  react2cam(fmt) {
+    const showInfo = cfg.reactState.type !== 'free';
+    if (fmt === 'landscape') return videoWin(L.main)
+      + camWin(px(1480, 40, 400, 488), 'Webcam 1') + camWin(px(1480, 552, 400, 488), 'Webcam 2')
+      + (showInfo ? infoStrip(L.info, reactTag(), reactTitleHtml(true)) : '')
+      + footerRow(showInfo ? L.footer : px(40, 852, 1400, 92)) + slot('pinned', L.pinned);
+    return videoWin(L.pTop)
+      + camWin(px(40, 627, 488, 663), 'Webcam 1') + camWin(px(552, 627, 488, 663), 'Webcam 2')
+      + (showInfo ? infoStrip(px(40, 1314, 1000, 80), reactTag(), reactTitleHtml(false)) : '')
+      + footerRow(px(40, showInfo ? 1418 : 1314, 1000, 172)) + slot('pinned', L.pPinned);
+  },
+
+  chatting(fmt) {
+    const title = `Just Chatting<span class="sep"></span><b>${esc(cfg.texts.chatting.topic)}</b>`;
+    if (fmt === 'landscape') return hole('cam', L.main, 'Webcam principal', 'Dispositivo de captura de vídeo', { accent: true, live: true })
+      + chatWin(px(1480, 40, 400, 1000)) + infoStrip(L.info, 'Ao vivo', title)
+      + footerRow(L.footer) + slot('pinned', 'left:72px;bottom:284px;max-width:640px;');
+    return hole('cam', px(40, 40, 1000, 1100), 'Webcam principal', 'Dispositivo de captura de vídeo', { accent: true, live: true })
+      + infoStrip(px(40, 1164, 1000, 80), 'Ao vivo', title) + footerRow(px(40, 1268, 1000, 172))
+      + chatWin(px(40, 1518, 1000, 362)) + slot('pinned', 'left:72px;bottom:812px;max-width:760px;');
+  },
+
+  irl(fmt) {
+    const land = fmt === 'landscape';
+    const live = cfg.hideLive ? '' : `<div class="live-badge live-irl"><i></i>Ao vivo</div>`;
+    return `
+      <div class="win win-irl" style="left:0;top:0;width:100%;height:100%;">
+        <div class="win-body hole">
+          <div class="ph"><span class="ph-label">Câmera IRL</span><span class="ph-hint">Webcam, celular ou câmera de ação</span></div>
+        </div>
+      </div>
+      ${live}
+      <div class="irl-location" style="${land ? 'left:40px;bottom:40px;' : 'left:40px;bottom:260px;'}">
+        <span class="irl-pin"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>
+        <span class="irl-text"><span class="irl-kicker">${esc(cfg.irlState.kicker)}</span><span class="irl-name">${esc(cfg.irlState.location || 'Sua localização')}</span></span>
+      </div>
+      ${slot('spotify', 'right:40px;top:40px;')}
+      ${slot('social', land ? 'right:40px;bottom:40px;' : 'right:40px;top:136px;')}
+      ${slot('goal', land ? 'right:40px;top:136px;width:420px;' : 'left:40px;bottom:400px;width:620px;')}
+      ${slot('pinned', land ? 'left:40px;top:120px;max-width:640px;' : 'left:40px;top:120px;max-width:760px;')}`;
+  },
+
+  start: () => fullscreen('start'),
+  brb: () => fullscreen('brb'),
+  end: () => fullscreen('end')
+};
+
+function fullscreen(kind) {
+  const t = cfg.texts[kind];
+  const sub = kind === 'end' ? cfg.endState.message : t.sub;
+  const items = SK.parseTicker(t.ticker);
+  const tickerItems = items.map(i => `<span>${esc(i)}</span>`).join('');
+  const duration = Math.max(18, items.join('').length * 0.35);
+  const countdown = kind === 'end' ? '' : `
+    <div class="fs-countdown" data-countdown hidden>
+      <span class="cd-label">${kind === 'start' ? 'Começa em' : 'Volto em'}</span>
+      <span class="cd-value">00:00</span>
+    </div>`;
+  return `
+    <div class="fs fs-${kind}">
+      <div class="fs-top">
+        <span class="fs-brand"><span class="fs-mark"></span>${esc(cfg.gameState.nick)}</span>
+        <span class="fs-clock" data-clock></span>
+      </div>
+      <div class="fs-main">
+        <div class="fs-kicker">${esc(t.kicker)}</div>
+        <h1 class="fs-title"><span>${esc(t.title)}</span><em>${esc(t.highlight)}</em></h1>
+        ${sub ? `<p class="fs-sub">${esc(sub)}</p>` : ''}
+        ${countdown}
+        <div class="slot fs-socials" data-slot="social"></div>
+      </div>
+      ${items.length ? `
+      <div class="ticker">
+        <div class="ticker-track"><div class="ticker-move" style="animation-duration:${duration}s">${tickerItems}${tickerItems}</div></div>
+      </div>` : ''}
+    </div>`;
+}
+
+/* =========================================================================
+   Widgets
+========================================================================= */
+const SOCIAL_ICONS = {
+  tiktok: '<svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V9.36a8.16 8.16 0 0 0 4.77 1.52V7.42c.01 0-.69-.04-1.84-.73z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58 0 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s0 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.85.07s-3.58 0-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92-.06-1.27-.07-1.64-.07-4.85s0-3.58.07-4.85C2.38 3.92 3.9 2.38 7.15 2.23 8.42 2.18 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07c-4.35.2-6.78 2.62-6.98 6.98C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.2 4.35 2.62 6.78 6.98 6.98C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c4.35-.2 6.78-2.62 6.98-6.98.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.2-4.35-2.63-6.78-6.98-6.98C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>',
+  youtube: '<svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.12-2.12C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.53A3 3 0 0 0 .5 6.2C0 8.07 0 12 0 12s0 3.93.5 5.8a3 3 0 0 0 2.12 2.12c1.88.53 9.38.53 9.38.53s7.5 0 9.38-.53a3 3 0 0 0 2.12-2.12c.5-1.87.5-5.8.5-5.8s0-3.93-.5-5.8zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg>'
+};
+const MUSIC_ICON = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>';
+
+function activeSocials() {
+  return ['tiktok', 'instagram', 'youtube']
+    .filter(k => cfg.social[k].on && cfg.social[k].handle.trim())
+    .map(k => ({ key: k, handle: cfg.social[k].handle.trim().replace(/^@/, '') }));
+}
+
+function socialHtml() {
+  const list = activeSocials();
+  if (!list.length) {
+    if (cfg.state.scene !== 'end') return '';
+    return `<div class="socials"><span class="soc soc-nick"><span class="soc-icon">@</span><span>${esc(cfg.gameState.nick.replace(/^@/, ''))}</span></span></div>`;
+  }
+  return `<div class="socials">${list.map(s =>
+    `<span class="soc soc-${s.key}"><span class="soc-icon">${SOCIAL_ICONS[s.key]}</span><span>@${esc(s.handle)}</span></span>`).join('')}</div>`;
+}
+
+function spotifyHtml() {
+  const cur = cfg.SP.current;
+  if (!cfg.SP.enabled || !cur) return '';
+  const cover = cur.cover ? `<img src="${esc(cur.cover)}" alt="">` : MUSIC_ICON;
+  return `
+    <div class="np">
+      <span class="np-cover">${cover}</span>
+      <span class="np-text">
+        <span class="np-kicker"><span class="eq"><i></i><i></i><i></i></span>Tocando agora</span>
+        <span class="np-title">${esc(cur.title)}</span>
+        ${cur.artist ? `<span class="np-artist">${esc(cur.artist)}</span>` : ''}
+      </span>
+    </div>`;
+}
+
+function goalHtml() {
+  const g = cfg.goal;
+  if (!g.enabled) return '';
+  const pct = SK.goalPercent(g.current, g.target);
+  return `
+    <div class="goal${pct >= 100 ? ' is-done' : ''}">
+      <div class="goal-head"><span class="goal-title">${esc(g.title)}</span><span class="goal-count">${g.current}<span>/${g.target}</span></span></div>
+      <div class="goal-track"><i style="width:${pct}%"></i></div>
+    </div>`;
+}
+
+function pinnedHtml() {
+  const p = cfg.pinned;
+  if (!p) return '';
+  return `
+    <div class="pin" style="--name:${esc(SK.readableNameColor(p.color, p.user))}">
+      <div class="pin-head"><span class="pin-tag">Destaque do chat</span><span class="pin-name">${esc(p.user)}</span></div>
+      <div class="pin-text">${SK.segmentsToHtml(p.segments)}</div>
+    </div>`;
+}
+
+function renderWidgets() {
+  const scene = document.getElementById('scene');
+  if (!scene) return;
+  const fill = (name, html) => scene.querySelectorAll(`[data-slot="${name}"]`).forEach(el => {
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+  });
+  fill('social', socialHtml());
+  fill('spotify', spotifyHtml());
+  fill('goal', goalHtml());
+  fill('pinned', pinnedHtml());
+}
+
+/* =========================================================================
+   Render principal
+========================================================================= */
+function applyTheme() {
+  const root = document.documentElement.style;
+  root.setProperty('--accent', cfg.state.color);
+  root.setProperty('--accent-a', SK.hexToRgba(cfg.state.color, 0.16));
+  root.setProperty('--on-accent', SK.contrastText(cfg.state.color));
+}
+
+function renderScene() {
+  const stage = document.getElementById('stage');
+  const scene = document.getElementById('scene');
+  const { format, scene: name } = cfg.state;
+  applyTheme();
+  stage.className = `stage ${format} scene-${name}`
+    + (cfg.square ? ' is-square' : '')
+    + (cfg.bg.type !== 'none' ? ' has-bg' : '');
+
+  chatDetachAll();
+  scene.innerHTML = (Scenes[name] || Scenes.game)(format);
+  scene.querySelectorAll('[data-chat]').forEach(chatAttach);
+  renderWidgets();
+  tickClocks();
+  fitStage();
+  applyBackground();
+}
+
+function fitStage() {
+  const stage = document.getElementById('stage');
+  const frame = document.getElementById('previewFrame');
+  const [W, H] = SK.SIZES[cfg.state.format];
+  let availW, availH;
+  if (isOBS) {
+    availW = window.innerWidth; availH = window.innerHeight;
+  } else {
+    const box = document.getElementById('previewBox');
+    availW = box.clientWidth;
+    availH = Math.max(320, window.innerHeight - box.getBoundingClientRect().top - 24);
+  }
+  stageScale = Math.min(availW / W, availH / H) || 1;
+  stage.style.width = W + 'px';
+  stage.style.height = H + 'px';
+  stage.style.transform = `scale(${stageScale})`;
+  frame.style.width = Math.round(W * stageScale) + 'px';
+  frame.style.height = Math.round(H * stageScale) + 'px';
+}
+
+/* relógios e contagem regressiva */
+function tickClocks() {
+  const now = Date.now();
+  const clock = SK.formatClock(new Date(now));
+  document.querySelectorAll('[data-clock]').forEach(el => { if (el.textContent !== clock) el.textContent = clock; });
+
+  const endsAt = cfg.countdown.endsAt;
+  document.querySelectorAll('[data-countdown]').forEach(el => {
+    const left = endsAt - now;
+    /* depois de zerar, mostra "Agora" por 10 minutos e some */
+    const visible = endsAt > 0 && left > -10 * 60 * 1000;
+    el.hidden = !visible;
+    if (!visible) return;
+    el.classList.toggle('is-over', left <= 0);
+    const v = el.querySelector('.cd-value');
+    const text = left > 0 ? SK.formatCountdown(left) : 'Agora';
+    if (v.textContent !== text) v.textContent = text;
+  });
+}
+
+/* =========================================================================
+   Fundo
+   Painel: CSS no palco. OBS: canvas com recortes transparentes nas janelas
+   .hole, para as fontes reais aparecerem por baixo.
+========================================================================= */
+let _bgImg = null;
+
+function bgCss() {
+  const b = cfg.bg;
+  if (b.type === 'solid') return { backgroundColor: b.color1, backgroundImage: 'none' };
+  if (b.type === 'gradient') return { backgroundColor: b.color1, backgroundImage: `linear-gradient(${b.angle}deg, ${b.color1}, ${b.color2})` };
+  if (b.type === 'image' && b.imageUrl) return { backgroundColor: '#000', backgroundImage: `url("${b.imageUrl.replace(/"/g, '%22')}")` };
+  return { backgroundColor: 'transparent', backgroundImage: 'none' };
+}
+
+function applyBackground() {
+  const stage = document.getElementById('stage');
+  let canvas = document.getElementById('bgCanvas');
+
+  if (!isOBS) {
+    if (canvas) canvas.remove();
+    Object.assign(stage.style, bgCss(), { backgroundSize: 'cover', backgroundPosition: 'center' });
+    return;
+  }
+
+  stage.style.backgroundColor = 'transparent';
+  stage.style.backgroundImage = 'none';
+  if (cfg.bg.type === 'none' || (cfg.bg.type === 'image' && !cfg.bg.imageUrl)) { if (canvas) canvas.remove(); return; }
+
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'bgCanvas';
+    stage.insertBefore(canvas, stage.firstChild);
+  }
+  const [W, H] = SK.SIZES[cfg.state.format];
+  canvas.width = W; canvas.height = H;
+
+  if (cfg.bg.type === 'image') {
+    const url = cfg.bg.imageUrl;
+    if (_bgImg && _bgImg.dataset.url === url && _bgImg.complete) paintCanvas(canvas, _bgImg);
+    else {
+      const img = new Image();
+      img.dataset.url = url;
+      img.onload = () => { _bgImg = img; paintCanvas(canvas, img); };
+      img.onerror = () => console.warn('[bg] falha ao carregar imagem:', url);
+      img.src = url;
+    }
+  } else paintCanvas(canvas, null);
+}
+
+function paintCanvas(canvas, img) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, b = cfg.bg;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.clearRect(0, 0, W, H);
+  if (img) {
+    const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    ctx.drawImage(img, (W - img.naturalWidth * s) / 2, (H - img.naturalHeight * s) / 2, img.naturalWidth * s, img.naturalHeight * s);
+  } else if (b.type === 'solid') {
+    ctx.fillStyle = b.color1; ctx.fillRect(0, 0, W, H);
+  } else if (b.type === 'gradient') {
+    const rad = b.angle * Math.PI / 180, len = Math.sqrt(W * W + H * H) / 2;
+    const dx = Math.sin(rad), dy = -Math.cos(rad);
+    const g = ctx.createLinearGradient(W / 2 - len * dx, H / 2 - len * dy, W / 2 + len * dx, H / 2 + len * dy);
+    g.addColorStop(0, b.color1); g.addColorStop(1, b.color2);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  /* recortes: coordenadas sem escala (divide pelo scale do palco) */
+  ctx.globalCompositeOperation = 'destination-out';
+  const sr = document.getElementById('stage').getBoundingClientRect();
+  document.querySelectorAll('#scene .hole').forEach(el => {
+    const r = el.getBoundingClientRect();
+    ctx.fillRect(Math.round((r.left - sr.left) / stageScale), Math.round((r.top - sr.top) / stageScale),
+      Math.round(r.width / stageScale), Math.round(r.height / stageScale));
+  });
+  ctx.globalCompositeOperation = 'source-over';
+}

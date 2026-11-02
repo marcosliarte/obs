@@ -2,129 +2,101 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Teste Supabase — StreamKit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamKit — Diagnóstico do Supabase</title>
 <style>
-  body { font-family: monospace; background: #0c0c0e; color: #f5f5f6; padding: 24px; line-height: 1.6; }
-  h1 { font-size: 18px; color: #d6f24b; }
-  button { background: #d6f24b; color: #0a0a0a; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer; margin: 6px 6px 6px 0; font-family: inherit; }
-  button:hover { opacity: 0.85; }
-  pre { background: #141417; border: 1px solid #2a2a2e; border-radius: 8px; padding: 14px; white-space: pre-wrap; word-break: break-all; margin: 12px 0; }
-  .ok { color: #34d399; }
-  .err { color: #f87171; }
-  input { background: #141417; border: 1px solid #2a2a2e; color: #f5f5f6; border-radius: 6px; padding: 8px; font-family: inherit; width: 200px; }
+  body { margin: 0; padding: 32px; background: #0a0b0d; color: #e6e8eb; font: 14px/1.5 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { color: #8c929b; margin: 0 0 20px; }
+  button { height: 34px; padding: 0 14px; margin: 0 6px 6px 0; border: 1px solid #2e333a; border-radius: 6px; background: #171a1e; color: #e6e8eb; font: inherit; cursor: pointer; }
+  button:hover { background: #1e2227; }
+  pre { min-height: 120px; padding: 14px; background: #111316; border: 1px solid #22262c; border-radius: 6px; white-space: pre-wrap; word-break: break-all; font: 12px/1.5 ui-monospace, Consolas, monospace; }
+  .ok { color: #3ccf8e; } .err { color: #f0645a; } .warn { color: #e8b33c; }
 </style>
 </head>
 <body>
-<h1>🔧 Diagnóstico Supabase — StreamKit</h1>
-<p>Use esta página para testar se o Supabase está funcionando. Abra o Console (F12) para ver detalhes.</p>
-
-<div>
-  <button onclick="testLoad()">1. Testar LEITURA</button>
-  <button onclick="testSave()">2. Testar ESCRITA</button>
-  <button onclick="testFull()">3. Teste completo (escreve e lê)</button>
-</div>
-<div style="margin-top:12px;">
-  <input type="text" id="testColor" value="#ff0000" placeholder="cor de teste">
-  <button onclick="saveColor()">Salvar essa cor</button>
-</div>
-
-<pre id="out">Clique num botão para começar...</pre>
+<main>
+  <h1>Diagnóstico do Supabase</h1>
+  <p>Os testes não alteram a configuração do seu overlay: a escrita usa uma linha separada (<code>__diagnostico__</code>).</p>
+  <button onclick="testRead()">1. Ler configuração</button>
+  <button onclick="testWrite()">2. Testar escrita</button>
+  <button onclick="testLocked()">3. Conferir bloqueio sem chave</button>
+  <pre id="out">Escolha um teste.</pre>
+</main>
 
 <script>
 const SUPABASE_URL = 'https://lzfkwdirmwcuwgrgiguq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_PeRkBtbqIR4XK5jvkrVz_g_MVVVWYPQ';
-const OVERLAY_ID = 'default';
+const OVERLAY_ID = new URLSearchParams(location.search).get('id') || 'default';
+const TEST_ID = '__diagnostico__';
+const writeKey = (() => { try { return localStorage.getItem('sk_write_key') || ''; } catch (_) { return ''; } })();
 
 const out = document.getElementById('out');
-function log(msg, cls) {
-  const span = cls ? `<span class="${cls}">${msg}</span>` : msg;
-  out.innerHTML += span + '\n';
-  console.log(msg);
-}
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+function log(msg, cls) { out.innerHTML += (cls ? `<span class="${cls}">${esc(msg)}</span>` : esc(msg)) + '\n'; }
 function clear() { out.innerHTML = ''; }
+const headers = extra => Object.assign({ 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }, extra || {});
 
-function headers(extra) {
-  return Object.assign({
-    'Content-Type': 'application/json',
-    'apikey': SUPABASE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_KEY,
-  }, extra || {});
-}
-
-async function testLoad() {
+async function testRead() {
   clear();
-  log('Carregando do Supabase...');
+  log(`Lendo a config "${OVERLAY_ID}"…`);
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=*`, { headers: headers(), cache: 'no-store' });
-    log('Status: ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err');
-    const txt = await r.text();
-    log('Resposta:');
-    log(txt);
-    if (r.status === 401 || r.status === 403) log('\n⚠️ ERRO DE PERMISSÃO — rode o SQL de setup (políticas RLS) no Supabase!', 'err');
-    if (txt === '[]') log('\n⚠️ A tabela existe mas está VAZIA. Rode o INSERT do SQL de setup.', 'err');
-  } catch(e) {
-    log('ERRO: ' + e.message, 'err');
-  }
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${encodeURIComponent(OVERLAY_ID)}&select=config,updated_at`, { headers: headers(), cache: 'no-store' });
+    log(`HTTP ${r.status}`, r.ok ? 'ok' : 'err');
+    const rows = await r.json();
+    if (!Array.isArray(rows) || !rows.length) { log('A linha não existe. Rode supabase/setup.sql.', 'warn'); return; }
+    const c = rows[0].config || {};
+    log(`Atualizada em ${new Date(rows[0].updated_at).toLocaleString()}`);
+    log(`Cena: ${c.state && c.state.scene} · Chat: ${c.CHAT && c.CHAT.mode} · Cor: ${c.state && c.state.color}`);
+    log('\nLeitura funcionando.', 'ok');
+  } catch (e) { log('Erro: ' + e.message, 'err'); }
 }
 
-async function testSave() {
-  clear();
-  log('Salvando no Supabase (PATCH)...');
-  const body = JSON.stringify({ config: { teste: 'ok', quando: new Date().toISOString() }, updated_at: new Date().toISOString() });
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}`, {
-      method: 'PATCH', headers: headers({ 'Prefer': 'return=representation' }), body
-    });
-    log('Status: ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err');
-    const txt = await r.text();
-    log('Resposta:');
-    log(txt);
-    if (r.ok && txt !== '[]') log('\n✅ ESCRITA FUNCIONOU!', 'ok');
-    if (txt === '[]') log('\n⚠️ PATCH não encontrou a linha id=default. Rode o INSERT do SQL.', 'err');
-    if (r.status === 401 || r.status === 403) log('\n⚠️ ERRO DE PERMISSÃO — falta a política de UPDATE no SQL!', 'err');
-  } catch(e) {
-    log('ERRO: ' + e.message, 'err');
-  }
-}
-
-async function saveColor() {
-  clear();
-  const color = document.getElementById('testColor').value;
-  log('Salvando cor ' + color + '...');
-  const body = JSON.stringify({ config: { state: { color: color, scene: 'game', format: 'landscape' } }, updated_at: new Date().toISOString() });
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}`, {
-      method: 'PATCH', headers: headers({ 'Prefer': 'return=representation' }), body
-    });
-    log('Status: ' + r.status, r.ok ? 'ok' : 'err');
-    log(await r.text());
-    if (r.ok) log('\n✅ Cor salva! Agora abra o overlay no OBS e veja se mudou.', 'ok');
-  } catch(e) {
-    log('ERRO: ' + e.message, 'err');
-  }
-}
-
-async function testFull() {
+async function testWrite() {
   clear();
   const marca = 'teste_' + Date.now();
-  log('1) Escrevendo marca: ' + marca);
-  const body = JSON.stringify({ config: { marca }, updated_at: new Date().toISOString() });
+  const config = { marca };
+  log(writeKey ? 'Usando a chave de escrita salva neste navegador.' : 'Sem chave de escrita: testando escrita direta.');
   try {
-    const rw = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}`, {
-      method: 'PATCH', headers: headers({ 'Prefer': 'return=minimal' }), body
-    });
-    log('   Escrita status: ' + rw.status, rw.ok ? 'ok' : 'err');
-
-    log('2) Lendo de volta...');
-    const rr = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${OVERLAY_ID}&select=config`, { headers: headers(), cache: 'no-store' });
+    let ok;
+    if (writeKey) {
+      log('Atenção: a chave precisa existir para o id "__diagnostico__" em streamkit_keys.', 'warn');
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/streamkit_save`, { method: 'POST', headers: headers(), body: JSON.stringify({ p_id: TEST_ID, p_key: writeKey, p_config: config }) });
+      log(`RPC: HTTP ${r.status}`, r.ok ? 'ok' : 'err');
+      ok = r.ok;
+    } else {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config`, {
+        method: 'POST', headers: headers({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+        body: JSON.stringify({ id: TEST_ID, config, updated_at: new Date().toISOString() })
+      });
+      log(`Upsert: HTTP ${r.status}`, r.ok ? 'ok' : 'err');
+      ok = r.ok;
+    }
+    if (!ok) { log('\nEscrita recusada. Se você já ativou a proteção, isso é o esperado sem chave.', 'warn'); return; }
+    const rr = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${TEST_ID}&select=config`, { headers: headers(), cache: 'no-store' });
     const data = await rr.json();
-    log('   Leitura: ' + JSON.stringify(data));
     const lida = data && data[0] && data[0].config && data[0].config.marca;
-    if (lida === marca) log('\n✅✅ TUDO FUNCIONANDO! Escreveu e leu a mesma marca.', 'ok');
-    else log('\n❌ A marca lida (' + lida + ') é diferente da escrita (' + marca + ').', 'err');
-  } catch(e) {
-    log('ERRO: ' + e.message, 'err');
-  }
+    log(lida === marca ? '\nEscreveu e leu de volta a mesma marca.' : '\nA marca lida não confere.', lida === marca ? 'ok' : 'err');
+  } catch (e) { log('Erro: ' + e.message, 'err'); }
+}
+
+async function testLocked() {
+  clear();
+  log('Tentando alterar a config real SEM chave (não muda nada: grava o mesmo valor)…');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/streamkit_config?id=eq.${encodeURIComponent(OVERLAY_ID)}`, {
+      method: 'PATCH', headers: headers({ Prefer: 'return=representation' }),
+      body: JSON.stringify({ id: OVERLAY_ID })
+    });
+    const body = await r.text();
+    const blocked = !r.ok || body === '[]';
+    log(`HTTP ${r.status}`);
+    log(blocked
+      ? '\nProtegido: escrita anônima bloqueada.'
+      : '\nDESPROTEGIDO: qualquer pessoa com a chave pública pode alterar o overlay. Rode supabase/setup.sql.',
+      blocked ? 'ok' : 'err');
+  } catch (e) { log('Erro: ' + e.message, 'err'); }
 }
 </script>
 </body>

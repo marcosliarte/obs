@@ -1,0 +1,12 @@
+{
+  "name": "streamkit-overlays",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Overlays para OBS (Twitch 16:9 e TikTok 9:16) com painel de controle via Supabase",
+  "scripts": {
+    "test": "node --test tests/core.test.js",
+    "test:browser": "node tests/smoke.js",
+    "test:panel": "node tests/panel.js",
+    "test:all": "npm test && npm run test:browser && npm run test:panel"
+  }
+}
