@@ -9,11 +9,13 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const SCENES = ['game', 'react', 'reactfree', 'react2cam', 'chatting', 'irl', 'start', 'brb', 'end'];
+  const SCENES = ['game', 'react', 'reactfree', 'react2cam', 'reactnochat', 'chatting', 'irl', 'start', 'brb', 'end'];
   const FORMATS = ['landscape', 'portrait'];
   const CHAT_MODES = ['none', 'test', 'twitch', 'kick', 'multi', 'youtube', 'tiktok', 'url'];
   const BG_TYPES = ['none', 'solid', 'gradient', 'image'];
   const REACT_TYPES = ['movie', 'series', 'free'];
+  const RNC_CORNERS = ['br', 'bl', 'tr', 'tl'];
+  const RNC_SIZES = ['s', 'm', 'l'];
   const ALERT_TYPES = ['sub', 'resub', 'gift', 'raid', 'cheer'];
   const SIZES = { landscape: [1920, 1080], portrait: [1080, 1920] };
 
@@ -24,6 +26,8 @@
       state: { color: '#d6f24b', scene: 'game', format: 'landscape' },
       reactState: { type: 'movie', title: 'Nome do filme', season: '1', episode: '1', note: '' },
       gameState: { name: 'Seu jogo aqui', nick: '@seunick' },
+      /* React sem chat: config própria da moldura da webcam (handle vazio = nick exibido) */
+      reactNoChat: { handle: '', showHandle: true, color: '#ffffff', border: 2, size: 'm', corner: 'br' },
       irlState: { kicker: 'Explorando', location: 'Sua localização' },
       social: {
         tiktok: { on: false, handle: '' },
@@ -177,6 +181,13 @@
     if (!isHexColor(c.state.color)) c.state.color = def.state.color;
 
     c.reactState.type = oneOf(c.reactState.type, REACT_TYPES, 'movie');
+    const rnc = c.reactNoChat;
+    if (!isHexColor(rnc.color)) rnc.color = def.reactNoChat.color;
+    rnc.border = clampNum(Math.round(rnc.border), 1, 8);
+    rnc.size = oneOf(rnc.size, RNC_SIZES, 'm');
+    rnc.corner = oneOf(rnc.corner, RNC_CORNERS, 'br');
+    rnc.handle = clampText(rnc.handle, 40);
+
     c.CHAT.mode = oneOf(c.CHAT.mode, CHAT_MODES, 'none');
     c.CHAT.kickChannel = cleanChannel(c.CHAT.kickChannel);
     c.CHAT.kickChatroomId = String(c.CHAT.kickChatroomId).replace(/\D/g, '');

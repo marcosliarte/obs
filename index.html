@@ -71,6 +71,35 @@
         <p class="note">Sem campos: mostra apenas “Reagindo ao vivo” e o seu nick.</p>
       </div>
 
+      <div class="sec-body" data-scenes="reactnochat">
+        <label class="switch"><input type="checkbox" data-bind="reactNoChat.showHandle"><span>Mostrar faixa do @ embaixo da webcam</span></label>
+        <label class="field" data-show="reactNoChat.showHandle=true"><span class="lbl">@ <em>vazio = usa o nick exibido</em></span>
+          <input type="text" data-bind="reactNoChat.handle" placeholder="@seunick" maxlength="40"></label>
+        <div class="row">
+          <label class="field"><span class="lbl">Cor da moldura</span><input type="color" data-bind="reactNoChat.color"></label>
+          <label class="field"><span class="lbl">Espessura da borda</span><input type="range" min="1" max="8" step="1" data-type="number" data-bind="reactNoChat.border"></label>
+        </div>
+        <div class="row" data-show="state.format=landscape">
+          <label class="field"><span class="lbl">Tamanho da webcam</span>
+            <select data-bind="reactNoChat.size">
+              <option value="s">Pequena (400 × 225)</option>
+              <option value="m">Média (480 × 270)</option>
+              <option value="l">Grande (640 × 360)</option>
+            </select>
+          </label>
+          <label class="field"><span class="lbl">Canto</span>
+            <select data-bind="reactNoChat.corner">
+              <option value="br">Inferior direito</option>
+              <option value="bl">Inferior esquerdo</option>
+              <option value="tr">Superior direito</option>
+              <option value="tl">Superior esquerdo</option>
+            </select>
+          </label>
+        </div>
+        <p class="note" id="rncPos"></p>
+        <p class="note">O vídeo não tem moldura: encaixe a fonte onde quiser. Sem chat e sem selo “Ao vivo”.</p>
+      </div>
+
       <div class="sec-body" data-scenes="chatting">
         <label class="field"><span class="lbl">Assunto</span><input type="text" data-bind="texts.chatting.topic" maxlength="60"></label>
       </div>

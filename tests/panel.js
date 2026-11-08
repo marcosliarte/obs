@@ -167,11 +167,11 @@ async function main() {
     await T.sleep(50);
     return T.$('#resolution').textContent === '1080 × 1920' && T.$('#stage').classList.contains('portrait')`));
 
-  check('menu de links lista as 9 cenas no formato atual', await run(`
+  check('menu de links lista as 10 cenas no formato atual', await run(`
     T.click('[data-action="links-toggle"]');
     await T.sleep(50);
     const rows = document.querySelectorAll('#linksList .link-row');
-    const ok = rows.length === 9 && [...rows].every(r => r.querySelector('[data-copy-url]').dataset.copyUrl.includes('format=portrait'));
+    const ok = rows.length === 10 && [...rows].every(r => r.querySelector('[data-copy-url]').dataset.copyUrl.includes('format=portrait'));
     document.body.click();
     await T.sleep(50);
     return ok && T.$('#linksPop').hidden`));

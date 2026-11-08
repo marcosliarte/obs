@@ -82,6 +82,7 @@ const EXPECT = {
   react:     ['class="win win-video', 'Breaking Bad', 'T3 · E7', 'data-chat', 'class="goal', 'class="np"'],
   reactfree: ['class="win win-video', 'Reagindo <b>ao vivo</b>', 'data-chat'],
   react2cam: ['Webcam 1', 'Webcam 2', 'class="goal', 'class="np"'],
+  reactnochat: ['class="win win-video is-bare', 'class="rnc"', 'class="rnc-handle"'],
   chatting:  ['Webcam principal', 'data-chat', 'class="goal'],
   irl:       ['class="irl-location"', 'Avenida Paulista', 'class="np"', 'class="goal', 'class="soc '],
   start:     ['class="fs fs-start"', 'class="fs-countdown"', 'class="ticker"', 'class="soc '],
@@ -95,7 +96,7 @@ console.log('Navegador:', CHROME);
 {
   const dom = load(url({}, FIXTURE), '1600,1000', 'painel');
   baseChecks('painel', dom);
-  check('painel: 9 abas de cena', count(dom, /class="tab[^"]*" data-scene=/g) === 9);
+  check('painel: 10 abas de cena', count(dom, /class="tab[^"]*" data-scene=/g) === 10);
   check('painel: campo do jogo preenchido', /data-bind="gameState.name"/.test(dom));
   check('painel: links não aparecem antes do clique', /id="linksPop" hidden/.test(dom));
 }

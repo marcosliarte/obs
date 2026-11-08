@@ -15,7 +15,7 @@ const px = (l, t, w, h) => `left:${l}px;top:${t}px;width:${w}px;height:${h}px;`;
 function hole(kind, pos, label, hint, opts = {}) {
   const live = opts.live && !cfg.hideLive ? `<div class="live-badge"><i></i>Ao vivo</div>` : '';
   return `
-    <div class="win win-${kind}${opts.accent ? ' is-accent' : ''}" style="${pos}">
+    <div class="win win-${kind}${opts.accent ? ' is-accent' : ''}${opts.bare ? ' is-bare' : ''}" style="${pos}">
       <div class="win-body hole">
         <div class="ph"><span class="ph-label">${label}</span><span class="ph-hint">${hint}</span></div>
         ${live}
@@ -73,6 +73,37 @@ function reactTitleHtml(prefix) {
   return h;
 }
 
+/* ---------- React sem chat: moldura da webcam ---------- */
+const RNC_SIZE = { s: [400, 225], m: [480, 270], l: [640, 360] };
+
+/* posição da webcam (sem a faixa do @) — o painel mostra isso para encaixar no OBS */
+function rncGeom(fmt) {
+  const r = cfg.reactNoChat;
+  const strip = r.showHandle ? (fmt === 'portrait' ? 68 : 52) : 0;
+  if (fmt === 'portrait') return { cam: [40, 627, 1000, 563], strip };
+  const [w, h] = RNC_SIZE[r.size];
+  const right = r.corner.endsWith('r'), bottom = r.corner.startsWith('b');
+  return { cam: [right ? 1920 - 40 - w : 40, bottom ? 1080 - 40 - strip - h : 40, w, h], strip };
+}
+
+function rncHandle() {
+  const r = cfg.reactNoChat;
+  return (r.handle.trim() || cfg.gameState.nick).trim().replace(/^@+/, '');
+}
+
+function rncFrame(fmt) {
+  const r = cfg.reactNoChat;
+  const { cam: [l, t, w, h], strip } = rncGeom(fmt);
+  const vars = `--rnc-c:${r.color};--rnc-on:${SK.contrastText(r.color)};--rnc-b:${r.border}px;--rnc-strip:${strip}px;`;
+  return `
+    <div class="rnc" style="${px(l, t, w, h + strip)}${vars}">
+      <div class="rnc-cam hole" style="height:${h}px">
+        <div class="ph"><span class="ph-label">Webcam</span><span class="ph-hint">${w} × ${h}</span></div>
+      </div>
+      ${strip ? `<div class="rnc-handle"><span class="rnc-at">@</span><span class="rnc-name">${esc(rncHandle())}</span></div>` : ''}
+    </div>`;
+}
+
 /* ---------- layouts ---------- */
 const L = {
   /* paisagem: janela principal 16:9 (1400×788) + coluna direita 400px */
@@ -127,6 +158,14 @@ const Scenes = {
       + camWin(px(40, 627, 488, 663), 'Webcam 1') + camWin(px(552, 627, 488, 663), 'Webcam 2')
       + (showInfo ? infoStrip(px(40, 1314, 1000, 80), reactTag(), reactTitleHtml(false)) : '')
       + footerRow(px(40, showInfo ? 1418 : 1314, 1000, 172)) + slot('pinned', L.pPinned);
+  },
+
+  /* vídeo sem moldura + webcam com borda fina e faixa do @ (sem chat, sem "Ao vivo") */
+  reactnochat(fmt) {
+    const video = pos => hole('video', pos, 'Vídeo ou qualquer fonte', 'Sem borda · encaixe livre', { bare: true });
+    if (fmt === 'landscape') return video(px(0, 0, 1920, 1080)) + rncFrame(fmt);
+    const { cam: [, t, , h], strip } = rncGeom(fmt);
+    return video(L.pTop) + rncFrame(fmt) + footerRow(px(40, t + h + strip + 24, 1000, 172));
   },
 
   chatting(fmt) {

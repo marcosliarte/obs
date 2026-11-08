@@ -391,6 +391,31 @@ body.obs .ph { display: none; }
   letter-spacing: 0.02em; text-transform: uppercase;
 }
 
+/* ===================== REACT SEM CHAT ===================== */
+.win.is-bare::after { display: none; }
+.rnc { position: absolute; display: flex; flex-direction: column; }
+.rnc::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 var(--rnc-b) var(--rnc-c);
+  z-index: 3;
+}
+.rnc-cam { position: relative; flex-shrink: 0; }
+.rnc-handle {
+  display: flex; align-items: center; gap: 0.12em;
+  height: var(--rnc-strip);
+  padding: 0 calc(18px * var(--k));
+  background: var(--rnc-c);
+  color: var(--rnc-on);
+  font-family: var(--display); font-weight: 700;
+  font-size: calc(26px * var(--k));
+  letter-spacing: 0.03em;
+  white-space: nowrap; overflow: hidden;
+}
+.rnc-at { opacity: 0.6; }
+.rnc-name { overflow: hidden; text-overflow: ellipsis; }
+
 /* ===================== TELAS CHEIAS (começando / volto já / fim) ===================== */
 .fs {
   position: absolute; inset: 0;

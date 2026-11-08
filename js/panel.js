@@ -9,7 +9,7 @@
      data-scenes="react react2cam"    seção só aparece nessas cenas
 ========================================================================= */
 const SCENE_LABELS = {
-  game: 'Jogo', react: 'React', reactfree: 'React livre', react2cam: 'React 2 cams',
+  game: 'Jogo', react: 'React', reactfree: 'React livre', react2cam: 'React 2 cams', reactnochat: 'React sem chat',
   chatting: 'Just Chatting', irl: 'IRL', start: 'Começando', brb: 'Volto já', end: 'Encerramento'
 };
 const COLOR_PRESETS = ['#d6f24b', '#4f8cff', '#ff4d6d', '#ff8a3d', '#22c7a9', '#a77bff', '#f5f5f5'];
@@ -71,6 +71,7 @@ function afterFieldChange(path, el) {
   if (path === 'SP.enabled') spSync();
   if (path === 'state.color') markColor();
   if (path.startsWith('chatFilter.')) chatRepaint();
+  if (path.startsWith('reactNoChat.')) updateRncUI();
   const typing = el.type === 'text' || el.type === 'number' || el.tagName === 'TEXTAREA';
   commit({ widgetsOnly: WIDGET_PATHS.test(path), delay: typing ? 160 : 0 });
 }
@@ -96,6 +97,15 @@ function syncPanelFields() {
   updatePinnedUI();
   updateCountdownUI();
   updateWriteKeyUI();
+  updateRncUI();
+}
+
+/* onde encaixar a webcam no OBS (muda com tamanho, canto e faixa do @) */
+function updateRncUI() {
+  const el = $('#rncPos');
+  if (!el) return;
+  const { cam: [l, t, w, h] } = rncGeom(cfg.state.format);
+  el.textContent = `Webcam no OBS: posição ${l}, ${t} · tamanho ${w} × ${h}`;
 }
 
 function updateVisibility() {

@@ -12,6 +12,7 @@ O painel mostra um preview em escala que é **idêntico** ao que o OBS renderiza
 | React | `react` | Vídeo, webcam, chat, faixa com filme ou série (temporada/episódio) |
 | React livre | `reactfree` | Igual ao React, sem título |
 | React 2 cams | `react2cam` | Vídeo + duas webcams, sem chat |
+| React sem chat | `reactnochat` | Vídeo sem moldura + webcam com borda fina e faixa do @ |
 | Just Chatting | `chatting` | Webcam grande + chat |
 | IRL | `irl` | Câmera em tela cheia com localização |
 | Começando | `start` | Tela cheia com contagem regressiva e letreiro |

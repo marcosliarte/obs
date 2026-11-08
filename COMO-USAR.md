@@ -20,6 +20,7 @@ Veja o [Guia do OBS](GUIA-OBS-TWITCH.md): links, resolução e a posição exata
 |------|----------------------|
 | Jogo | Nome do jogo |
 | React / React 2 cams | Filme, série (temporada e episódio) ou livre, título e observação |
+| React sem chat | @ da faixa, cor da moldura, espessura da borda, tamanho e canto da webcam |
 | Just Chatting | Assunto |
 | IRL | Rótulo ("Explorando") e localização |
 | Começando / Volto já | Linha de apoio, título, destaque, texto, letreiro e contagem regressiva |
