@@ -404,7 +404,7 @@ body.obs .ph { display: none; }
 .rnc-cam { position: relative; flex-shrink: 0; }
 .rnc-handle {
   display: flex; align-items: center; gap: 0.12em;
-  flex: 1 1 0; min-height: 0;
+  height: var(--rnc-strip);
   padding: 0 calc(18px * var(--k));
   background: var(--rnc-c);
   color: var(--rnc-on);
@@ -415,24 +415,6 @@ body.obs .ph { display: none; }
 }
 .rnc-at { opacity: 0.6; }
 .rnc-name { overflow: hidden; text-overflow: ellipsis; }
-/* faixa do filme/série: altura fixa; o @ ocupa o resto da área abaixo da cam */
-.rnc-info {
-  display: flex; align-items: center; gap: calc(14px * var(--k));
-  height: 46px;
-  flex-shrink: 0;
-  padding: 0 calc(18px * var(--k));
-  background: var(--ink);
-  font-family: var(--display); font-weight: 500;
-  font-size: calc(21px * var(--k));
-  letter-spacing: 0.03em; text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap; overflow: hidden;
-}
-.stage.portrait .rnc-info { height: 60px; }
-.rnc-tag { font-weight: 700; color: var(--rnc-c); letter-spacing: 0.12em; flex-shrink: 0; }
-.rnc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.rnc-title b { font-weight: 700; color: var(--text); }
-.rnc-title .sep { background: var(--rnc-c); }
 
 /* ===================== TELAS CHEIAS (começando / volto já / fim) ===================== */
 .fs {
