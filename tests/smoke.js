@@ -82,7 +82,7 @@ const EXPECT = {
   react:     ['class="win win-video', 'Breaking Bad', 'T3 · E7', 'data-chat', 'class="goal', 'class="np"'],
   reactfree: ['class="win win-video', 'Reagindo <b>ao vivo</b>', 'data-chat'],
   react2cam: ['Webcam 1', 'Webcam 2', 'class="goal', 'class="np"'],
-  reactnochat: ['class="win win-video is-bare', 'class="rnc"', 'class="rnc-handle"'],
+  reactnochat: ['class="win win-video is-bare', 'class="rnc"', 'class="rnc-handle"', 'class="rnc-info"', 'T3 · E7'],
   chatting:  ['Webcam principal', 'data-chat', 'class="goal'],
   irl:       ['class="irl-location"', 'Avenida Paulista', 'class="np"', 'class="goal', 'class="soc '],
   start:     ['class="fs fs-start"', 'class="fs-countdown"', 'class="ticker"', 'class="soc '],

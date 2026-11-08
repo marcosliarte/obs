@@ -79,12 +79,16 @@ const RNC_SIZE = { s: [400, 225], m: [480, 270], l: [640, 360] };
 /* posição da webcam (sem a faixa do @) — o painel mostra isso para encaixar no OBS */
 function rncGeom(fmt) {
   const r = cfg.reactNoChat;
-  const strip = r.showHandle ? (fmt === 'portrait' ? 68 : 52) : 0;
+  const port = fmt === 'portrait';
+  const strip = (r.showHandle ? (port ? 68 : 52) : 0) + (rncHasInfo() ? (port ? 60 : 46) : 0);
   if (fmt === 'portrait') return { cam: [40, 627, 1000, 563], strip };
   const [w, h] = RNC_SIZE[r.size];
   const right = r.corner.endsWith('r'), bottom = r.corner.startsWith('b');
   return { cam: [right ? 1920 - 40 - w : 40, bottom ? 1080 - 40 - strip - h : 40, w, h], strip };
 }
+
+/* filme/série embaixo da webcam; tipo "Livre" não mostra nada */
+const rncHasInfo = () => cfg.reactState.type !== 'free';
 
 function rncHandle() {
   const r = cfg.reactNoChat;
@@ -94,13 +98,14 @@ function rncHandle() {
 function rncFrame(fmt) {
   const r = cfg.reactNoChat;
   const { cam: [l, t, w, h], strip } = rncGeom(fmt);
-  const vars = `--rnc-c:${r.color};--rnc-on:${SK.contrastText(r.color)};--rnc-b:${r.border}px;--rnc-strip:${strip}px;`;
+  const vars = `--rnc-c:${r.color};--rnc-on:${SK.contrastText(r.color)};--rnc-b:${r.border}px;`;
   return `
     <div class="rnc" style="${px(l, t, w, h + strip)}${vars}">
       <div class="rnc-cam hole" style="height:${h}px">
         <div class="ph"><span class="ph-label">Webcam</span><span class="ph-hint">${w} × ${h}</span></div>
       </div>
-      ${strip ? `<div class="rnc-handle"><span class="rnc-at">@</span><span class="rnc-name">${esc(rncHandle())}</span></div>` : ''}
+      ${r.showHandle ? `<div class="rnc-handle"><span class="rnc-at">@</span><span class="rnc-name">${esc(rncHandle())}</span></div>` : ''}
+      ${rncHasInfo() ? `<div class="rnc-info"><span class="rnc-tag">${reactTag()}</span><span class="rnc-title">${reactTitleHtml(false)}</span></div>` : ''}
     </div>`;
 }
 

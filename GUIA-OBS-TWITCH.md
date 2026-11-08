@@ -37,7 +37,7 @@ Valores de **Posição** (x, y) e **Caixa delimitadora** (largura × altura), co
 | React 2 cams | Webcam 1 | 1480, 40 | 400 × 488 |
 | React 2 cams | Webcam 2 | 1480, 552 | 400 × 488 |
 | React sem chat | Vídeo | livre (sem moldura) | até 1920 × 1080 |
-| React sem chat | Webcam | 1400, 718 | 480 × 270 (padrão; o painel mostra a posição exata) |
+| React sem chat | Webcam | 1400, 672 | 480 × 270 (padrão, com filme/série; o painel mostra a posição exata) |
 | Just Chatting | Webcam | 40, 40 | 1400 × 788 |
 | IRL | Câmera | 0, 0 | 1920 × 1080 |
 
