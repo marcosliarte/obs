@@ -32,7 +32,7 @@ test('emotes 7TV/BTTV/FFZ: parse das APIs e aplicação no texto', () => {
   const bttv = SK.parseExtEmotes('bttv', { channelEmotes: [{ id: '5f1b0186cf6d2144653d2970', code: 'catJAM' }], sharedEmotes: [{ id: 'abc', code: 'pepeD' }] });
   const ffz = SK.parseExtEmotes('ffz', [{ id: 123, code: 'LULW' }]);
   const stv = SK.parseExtEmotes('7tv', { emote_set: { emotes: [{ id: '01F6MZGCNG000255K4X1K96XKX', name: 'Clap' }, { id: 'bad id!', name: 'X' }] } });
-  const map = SK.emoteMap([bttv, ffz, stv]);
+  const map = SK.emoteMap([bttv, ffz, stv, null, { name: 'x' }, ['lixo']]);   /* entradas inválidas são ignoradas */
   assert.ok(map.catJAM && map.LULW && map.Clap && !map.X);
   const segs = SK.applyEmoteMap([{ type: 'text', text: 'oi catJAM  LULW!' }, { type: 'emote', id: '25', name: 'Kappa', platform: 'twitch' }], map);
   assert.deepEqual(segs.map(s => s.type), ['text', 'emote', 'text', 'emote']);
@@ -158,4 +158,47 @@ test('meta: tipo validado e plataforma YouTube aceita', () => {
   const r = SK.recentFromEvent({ type: 'cheer', platform: 'youtube', user: 'Bia', amount: 5 }, 1e12);
   assert.equal(r.platform, 'youtube');
   assert.equal(SK.recentText(r), 'super chat');
+});
+
+test('Twitch IRC: mensagens, emotes, selos, ações e escapes', () => {
+  const line = '@badges=broadcaster/1,subscriber/6;color=#FF0000;display-name=Ana\\sB;emotes=25:6-10;first-msg=1;id=abc;room-id=123 '
+    + ':ana!ana@ana.tmi.twitch.tv PRIVMSG #liarteee :salve Kappa';
+  const m = SK.parseIrc(line);
+  assert.equal(m.tags['display-name'], 'Ana B');
+  assert.equal(m.command, 'PRIVMSG');
+  const a = SK.twitchIrc(m);
+  assert.equal(a.kind, 'message');
+  assert.equal(a.user, 'Ana B');
+  assert.equal(a.first, true);
+  assert.deepEqual(a.badges, ['broadcaster', 'sub']);
+  assert.deepEqual(a.segments.map(x => x.type), ['text', 'emote']);
+  assert.equal(a.event, null);
+  const act = SK.twitchIrc(SK.parseIrc(':ana!ana@ana PRIVMSG #c :\u0001ACTION dança\u0001'));
+  assert.equal(act.action, true);
+  assert.equal(act.segments[0].text, 'dança');
+  const bits = SK.twitchIrc(SK.parseIrc('@bits=100;display-name=Bia;id=b1 :bia!bia@bia PRIVMSG #c :cheer100 toma'));
+  assert.deepEqual([bits.highlight, bits.event.type, bits.event.amount], [true, 'cheer', 100]);
+});
+
+test('Twitch IRC: subs, gift bomb sem duplicar, raid e moderação', () => {
+  const ev = l => SK.twitchIrc(SK.parseIrc(l));
+  assert.equal(ev('@msg-id=sub;display-name=Cris :tmi.twitch.tv USERNOTICE #c').event.type, 'sub');
+  const re = ev('@msg-id=resub;msg-param-cumulative-months=14;display-name=Cris;id=r1 :tmi.twitch.tv USERNOTICE #c :14 meses!');
+  assert.deepEqual([re.kind, re.event.type, re.event.months, re.highlight], ['message', 'resub', 14, true]);
+  assert.equal(ev('@msg-id=submysterygift;msg-param-mass-gift-count=5;display-name=Zé :tmi.twitch.tv USERNOTICE #c').event.count, 5);
+  assert.equal(ev('@msg-id=subgift;msg-param-community-gift-id=99;display-name=Zé :tmi.twitch.tv USERNOTICE #c'), null);
+  assert.equal(ev('@msg-id=subgift;msg-param-recipient-display-name=Lu;display-name=Zé :tmi.twitch.tv USERNOTICE #c').event.recipient, 'Lu');
+  assert.deepEqual(ev('@msg-id=raid;msg-param-displayName=Outro;msg-param-viewerCount=42 :tmi.twitch.tv USERNOTICE #c').event,
+    { type: 'raid', platform: 'twitch', user: 'Outro', viewers: 42 });
+  assert.deepEqual(ev('@target-msg-id=abc :tmi.twitch.tv CLEARMSG #c :x'), { kind: 'delete', id: 'abc' });
+  assert.deepEqual(ev(':tmi.twitch.tv CLEARCHAT #c :Troll'), { kind: 'ban', user: 'troll' });
+  assert.deepEqual(ev(':tmi.twitch.tv CLEARCHAT #c'), { kind: 'clear' });
+  assert.deepEqual(ev('@room-id=123 :tmi.twitch.tv ROOMSTATE #c'), { kind: 'room', roomId: '123' });
+  assert.deepEqual(ev(':justinfan1.tmi.twitch.tv 366 justinfan1 #c :End of /NAMES list'), { kind: 'joined' });
+  assert.equal(ev(':tmi.twitch.tv CAP * ACK :twitch.tv/tags'), null);
+});
+
+test('Kick: chave do Pusher colada no painel é validada', () => {
+  assert.equal(SK.normalizeConfig({ CHAT: { kickKey: ' 34BF7a0ff419a2a775b9"><' } }).CHAT.kickKey, '34bf7a0ff419a2a775b9');
+  assert.equal(SK.normalizeConfig({}).CHAT.kickKey, '');
 });

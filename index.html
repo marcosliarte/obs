@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/overlay.css?v=3.2.0">
-<link rel="stylesheet" href="css/panel.css?v=3.2.0">
+<link rel="stylesheet" href="css/overlay.css?v=3.2.1">
+<link rel="stylesheet" href="css/panel.css?v=3.2.1">
 </head>
 <body>
 
@@ -247,6 +247,10 @@
         </div>
         <label class="field" data-show="CHAT.mode=kick,multi"><span class="lbl">Chatroom ID do Kick <em>automático; preencha se não aparecer</em></span>
           <input type="text" data-bind="CHAT.kickChatroomId" data-clean="digits" placeholder="ex.: 73203653"></label>
+        <details class="adv" data-show="CHAT.mode=kick,multi"><summary>Avançado: chave do chat do Kick</summary>
+          <label class="field"><span class="lbl">Chave do Pusher <em>só se a Kick trocar de novo; vazio = automática</em></span>
+            <input type="text" data-bind="CHAT.kickKey" placeholder="34bf7a0ff419a2a775b9" spellcheck="false"></label>
+        </details>
         <label class="field" data-show="CHAT.mode=youtube,multi"><span class="lbl">Link da live do YouTube <em>troque a cada live</em></span><input type="text" data-bind="CHAT.ytVideoId" placeholder="youtube.com/live/… ou o ID"></label>
         <label class="field" data-show="CHAT.mode=youtube,multi"><span class="lbl">Chave da API do YouTube <em>opcional no modo YouTube</em></span><input type="text" data-bind="CHAT.ytApiKey" placeholder="AIza…" spellcheck="false" autocomplete="off"></label>
         <p class="note" data-show="CHAT.mode=youtube,multi">Com a chave, o YouTube entra no mesmo chat (com selos e Super Chats nos alertas). Crie em console.cloud.google.com → YouTube Data API v3, e <b>restrinja a chave ao site do overlay</b>: ela fica visível na config. Sem chave, o modo YouTube usa o chat oficial por iframe.</p>
@@ -431,15 +435,15 @@
 <div class="toast chrome" id="toast" hidden></div>
 
 <!-- ?v= evita que o OBS/GitHub Pages misture arquivos de versões diferentes -->
-<script src="js/core.js?v=3.2.0"></script>
-<script src="js/env.js?v=3.2.0"></script>
-<script src="js/store.js?v=3.2.0"></script>
-<script src="js/chat.js?v=3.2.0"></script>
-<script src="js/alerts.js?v=3.2.0"></script>
-<script src="js/spotify.js?v=3.2.0"></script>
-<script src="js/scenes.js?v=3.2.0"></script>
-<script src="js/obs.js?v=3.2.0"></script>
-<script src="js/panel.js?v=3.2.0"></script>
-<script src="js/main.js?v=3.2.0"></script>
+<script src="js/core.js?v=3.2.1"></script>
+<script src="js/env.js?v=3.2.1"></script>
+<script src="js/store.js?v=3.2.1"></script>
+<script src="js/chat.js?v=3.2.1"></script>
+<script src="js/alerts.js?v=3.2.1"></script>
+<script src="js/spotify.js?v=3.2.1"></script>
+<script src="js/scenes.js?v=3.2.1"></script>
+<script src="js/obs.js?v=3.2.1"></script>
+<script src="js/panel.js?v=3.2.1"></script>
+<script src="js/main.js?v=3.2.1"></script>
 </body>
 </html>

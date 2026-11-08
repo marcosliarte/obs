@@ -51,7 +51,7 @@
       },
       layout: { camAspect: '4:3', showNick: true },
       endState: { message: 'Obrigado por assistir. Até a próxima live.' },
-      CHAT: { mode: 'none', url: '', kickChannel: '', kickChatroomId: '', ytVideoId: '', ytApiKey: '' },
+      CHAT: { mode: 'none', url: '', kickChannel: '', kickChatroomId: '', ytVideoId: '', ytApiKey: '', kickKey: '' },
       TWITCH: { channel: '' },
       bg: { type: 'none', color1: '#0a0a0c', color2: '#1a1a2e', angle: 135, imageUrl: '' },
       hideLive: false,
@@ -252,6 +252,7 @@
     c.alerts.duration = clampNum(c.alerts.duration, 3, 20);
     c.goal.type = oneOf(c.goal.type, GOAL_TYPES, 'subs');
     c.CHAT.ytApiKey = String(c.CHAT.ytApiKey).replace(/[^\w-]/g, '').slice(0, 60);
+    c.CHAT.kickKey = String(c.CHAT.kickKey).toLowerCase().replace(/[^a-f0-9]/g, '').slice(0, 32);
     c.goal.current = Math.max(0, Math.round(c.goal.current));
     c.goal.target = Math.max(1, Math.round(c.goal.target));
     c.countdown.endsAt = Math.max(0, c.countdown.endsAt);
@@ -355,7 +356,8 @@
   /* listas → mapa nome → emote (só entradas válidas; a última lista vence) */
   function emoteMap(lists) {
     const map = Object.create(null);
-    for (const list of lists) for (const e of list || []) {
+    for (const list of lists) for (const e of Array.isArray(list) ? list : []) {
+      if (!isObj(e)) continue;
       const name = String(e.name || ''), id = String(e.id || '');
       if (name && name.length <= 60 && !/\s/.test(name) && /^[\w-]{1,40}$/.test(id)) map[name] = { id, platform: e.platform };
     }
@@ -523,6 +525,88 @@
         return { kind: 'event', key: 'kicks:' + user + ':' + amount + ':' + (d.gift && d.gift.gift_id),
           event: { type: 'cheer', platform: 'kick', user, amount } };
       }
+    }
+    return null;
+  }
+
+  /* ---------------------------------------------------------------------
+     Twitch IRC (WebSocket oficial, anônimo) — sem biblioteca externa
+  --------------------------------------------------------------------- */
+  const IRC_UNESCAPE = { s: ' ', ':': ';', '\\': '\\', r: '\r', n: '\n' };
+  function parseIrc(line) {
+    let s = String(line || ''), tags = {}, prefix = '';
+    if (s[0] === '@') {
+      const sp = s.indexOf(' ');
+      for (const kv of s.slice(1, sp).split(';')) {
+        const eq = kv.indexOf('=');
+        const k = eq < 0 ? kv : kv.slice(0, eq), v = eq < 0 ? '' : kv.slice(eq + 1);
+        tags[k] = v.replace(/\\(.)/g, (m, c) => IRC_UNESCAPE[c] !== undefined ? IRC_UNESCAPE[c] : c);
+      }
+      s = s.slice(sp + 1);
+    }
+    if (s[0] === ':') { const sp = s.indexOf(' '); prefix = s.slice(1, sp); s = s.slice(sp + 1); }
+    const ti = s.indexOf(' :');
+    const trailing = ti >= 0 ? s.slice(ti + 2) : null;
+    const params = (ti >= 0 ? s.slice(0, ti) : s).split(' ').filter(Boolean);
+    const command = params.shift() || '';
+    if (trailing !== null) params.push(trailing);
+    return { tags, prefix, command, params, nick: prefix.split('!')[0] };
+  }
+
+  /* "25:0-4,12-16/1902:6-10" → { 25: ['0-4', '12-16'], 1902: ['6-10'] } */
+  function ircEmotes(tag) {
+    const out = {};
+    for (const part of String(tag || '').split('/')) {
+      const [id, ranges] = part.split(':');
+      if (id && ranges) out[id] = ranges.split(',');
+    }
+    return out;
+  }
+  /* "broadcaster/1,subscriber/12" → { broadcaster: '1', subscriber: '12' } */
+  function ircBadges(tag) {
+    const out = {};
+    for (const b of String(tag || '').split(',')) { const [k, v] = b.split('/'); if (k) out[k] = v || '1'; }
+    return out;
+  }
+
+  function twitchIrc(m) {
+    if (!m || !m.command) return null;
+    const t = m.tags || {};
+    const user = t['display-name'] || t.login || m.nick;
+    switch (m.command) {
+      case 'PRIVMSG': {
+        let text = m.params[1] || '', action = false;
+        const am = /^\u0001ACTION (.*)\u0001$/.exec(text);
+        if (am) { text = am[1]; action = true; }
+        const bits = +t.bits || 0;
+        return {
+          kind: 'message', id: t.id, user, color: t.color, action, highlight: bits > 0,
+          first: t['first-msg'] === '1', badges: normalizeBadges('twitch', ircBadges(t.badges)),
+          segments: parseTwitchEmotes(text, ircEmotes(t.emotes)),
+          event: bits > 0 ? { type: 'cheer', platform: 'twitch', user, amount: bits } : null
+        };
+      }
+      case 'USERNOTICE': {
+        const id = t['msg-id'];
+        let event = null;
+        if (id === 'sub') event = { type: 'sub', platform: 'twitch', user };
+        else if (id === 'resub') event = { type: 'resub', platform: 'twitch', user, months: +t['msg-param-cumulative-months'] || 0 };
+        else if (id === 'submysterygift') event = { type: 'gift', platform: 'twitch', user, count: +t['msg-param-mass-gift-count'] || 1 };
+        /* subs individuais de uma "gift bomb" já vêm no submysterygift */
+        else if (id === 'subgift' && !t['msg-param-community-gift-id'])
+          event = { type: 'gift', platform: 'twitch', user, count: 1, recipient: t['msg-param-recipient-display-name'] || '' };
+        else if (id === 'raid') event = { type: 'raid', platform: 'twitch', user: t['msg-param-displayName'] || user, viewers: +t['msg-param-viewerCount'] || 0 };
+        if (!event) return null;
+        const text = m.params[1] || '';
+        return text
+          ? { kind: 'message', id: t.id, user, color: t.color, highlight: true, badges: normalizeBadges('twitch', ircBadges(t.badges)),
+              segments: parseTwitchEmotes(text, ircEmotes(t.emotes)), event }
+          : { kind: 'event', event };
+      }
+      case 'CLEARMSG': return { kind: 'delete', id: t['target-msg-id'] || '' };
+      case 'CLEARCHAT': return m.params[1] ? { kind: 'ban', user: String(m.params[1]).toLowerCase() } : { kind: 'clear' };
+      case 'ROOMSTATE': return t['room-id'] ? { kind: 'room', roomId: t['room-id'] } : null;
+      case '366': return { kind: 'joined' };
     }
     return null;
   }
@@ -697,7 +781,7 @@
     SCENES, FORMATS, CHAT_MODES, BG_TYPES, ALERT_TYPES, SIZES, CAM_ASPECTS, GOAL_TYPES,
     defaults, normalizeConfig, mergeShape,
     escapeHtml, richText, fillTemplate, clampText, cleanChannel, safeUrl,
-    parseExtEmotes, emoteMap, applyEmoteMap, isEmoteOnly, kickEvent, ytVideoId, youtubeItem,
+    parseExtEmotes, emoteMap, applyEmoteMap, isEmoteOnly, kickEvent, ytVideoId, youtubeItem, parseIrc, twitchIrc,
     trackActive, pinnedActive, mergeRecent, recentFromEvent, recentText, fitTransform, overlayTransform, aspectLabel,
     isHexColor, hexToRgb, hexToRgba, contrastText, userColor, readableNameColor,
     parseTwitchEmotes, parseKickContent, segmentsToHtml, segmentsToText, emoteUrl,

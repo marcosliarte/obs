@@ -1,5 +1,5 @@
 /* =========================================================================
-   Chat — Twitch (tmi.js, anônimo) + Kick (Pusher, anônimo) + YouTube (API)
+   Chat — Twitch (IRC oficial, anônimo) + Kick (Pusher, anônimo) + YouTube (API)
    As conexões vivem fora da cena: trocar/re-renderizar a cena não derruba
    o chat nem perde mensagens (o histórico é repintado).
    Também captura eventos (sub, gift, raid, bits) para os alertas.
@@ -10,13 +10,12 @@ const Chat = {
   containers: new Set(),
   seen: new Set(),
   mockTimer: null,
-  twitch: { client: null, channel: '', connecting: false, scriptPromise: null, gen: 0, retry: null, fails: 0 },
-  kick: { ws: null, room: '', slug: '', pingTimer: null, retryTimer: null, fails: 0, seenEvents: new Map() },
+  twitch: { ws: null, channel: '', gen: 0, retry: null, fails: 0 },
+  kick: { ws: null, room: '', slug: '', pingTimer: null, retryTimer: null, fails: 0, keyIdx: 0, seenEvents: new Map() },
   /* emotes 7TV / BTTV / FFZ: globais + canais conectados */
   ext: { global: null, channels: {}, map: {} },
   /* YouTube: API oficial por polling (cota diária) — só consulta com a página visível */
   yt: { vid: '', key: '', chatId: '', page: '', timer: null, gen: 0, status: '' },
-  giftBombs: {}
 };
 
 /* No OBS, cada cena tem sua fonte Navegador e todas ficam abertas. Fora do
@@ -36,7 +35,12 @@ const PLATFORM_NAMES = { twitch: 'Twitch', kick: 'Kick', youtube: 'YouTube' };
 /* espera entre tentativas: 3s, 6s, 12s… até 60s */
 function retryDelay(fails) { return Math.min(60000, 3000 * Math.pow(2, Math.max(0, fails - 1))); }
 
-const KICK_PUSHER = 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false';
+/* A Kick troca a chave do Pusher de tempos em tempos (a última vez em out/2026).
+   Ordem: chave colada no painel (se houver) → atual → antiga. Se o Pusher
+   responder 4001 ("not in this cluster"), passa para a próxima. */
+const KICK_KEYS = ['34bf7a0ff419a2a775b9', '32cbd69e4b950bf97679'];
+function kickKeys() { return [...new Set([cfg.CHAT.kickKey, ...KICK_KEYS].filter(Boolean))]; }
+const kickPusherUrl = key => `wss://ws-us2.pusher.com/app/${key}?protocol=7&client=js&version=8.4.0-rc2&flash=false`;
 const MOCK_USERS = ['marina_o', 'pedrohq', 'cafe_amargo', 'ju.design', 'rafa_dev', 'lis_pod', 'thomas.b', 'ana_bea', 'gui_santos', 'dudu99'];
 const MOCK_TEXTS = ['salve, cheguei agora', 'que jogada', 'boa noite chat', 'primeira vez aqui, curtindo muito', 'manda mais disso', 'GG', 'isso merece um corte', 'concordo total', 'voltou com tudo hoje', 'qual a configuração do mouse?'];
 const BADGE_LABEL = { broadcaster: 'Streamer', mod: 'Mod', vip: 'VIP', sub: 'Sub' };
@@ -255,7 +259,8 @@ function extFetch(url) {
 }
 
 function rebuildEmoteMap() {
-  const lists = [].concat(Chat.ext.global || [], ...Object.values(Chat.ext.channels));
+  /* global = [ffz, bttv, 7tv]; cada canal = uma lista */
+  const lists = [...(Chat.ext.global || []), ...Object.values(Chat.ext.channels)];
   Chat.ext.map = SK.emoteMap(lists);
 }
 
@@ -408,120 +413,80 @@ function setFollowers(n) {
   renderWidgets();
 }
 
-/* ---------- TWITCH ---------- */
-function loadTmi() {
-  if (Chat.twitch.scriptPromise) return Chat.twitch.scriptPromise;
-  Chat.twitch.scriptPromise = new Promise((resolve, reject) => {
-    if (window.tmi) return resolve(window.tmi);
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js';
-    s.onload = () => resolve(window.tmi);
-    s.onerror = () => { Chat.twitch.scriptPromise = null; reject(new Error('falha ao carregar tmi.js')); };
-    document.head.appendChild(s);
-  });
-  return Chat.twitch.scriptPromise;
-}
-
+/* ---------- TWITCH (IRC por WebSocket, anônimo) ----------
+   Conexão direta com o chat oficial: sem biblioteca de CDN que possa sumir.
+   Se cair, tenta de novo sozinho (3 s, 6 s, 12 s… até 1 min). */
 function disconnectTwitch() {
   const t = Chat.twitch;
   t.gen++;
   clearTimeout(t.retry); t.retry = null;
-  if (t.client) { try { t.client.disconnect(); } catch (_) {} }
-  t.client = null; t.channel = ''; t.connecting = false;
+  if (t.ws) { t.ws.onclose = null; try { t.ws.close(); } catch (_) {} }
+  t.ws = null; t.channel = '';
 }
 
-/* Conecta uma vez; se falhar (CDN do tmi.js fora, rede instável) tenta de
-   novo sozinho — no OBS ninguém está olhando para recarregar a fonte.
-   t.gen invalida tentativas antigas quando o canal muda no meio. */
-async function connectTwitch(channel) {
+function connectTwitch(channel) {
   const t = Chat.twitch;
-  if (OFFLINE || !channel || t.connecting || t.client || t.retry) return;
+  if (OFFLINE || !channel || t.ws || t.retry) return;
   const gen = ++t.gen;
-  t.connecting = true;
   t.channel = channel;
-  let client = null;
-  try {
-    await loadTmi();
+  let ws;
+  try { ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443'); } catch (_) { return; }
+  t.ws = ws;
+  ws.onopen = () => {
+    ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+    ws.send('NICK justinfan' + (10000 + Math.floor(Math.random() * 80000)));
+    ws.send('JOIN #' + channel);
+  };
+  ws.onmessage = e => {
     if (gen !== t.gen) return;
-    client = new window.tmi.Client({
-      channels: [channel],
-      connection: { reconnect: true, secure: true },
-      options: { skipUpdatingEmotesets: true }
-    });
-    const live = () => gen === t.gen && client === t.client;
-    const twitchMsg = (tags, text, extra) => makeMessage('twitch', Object.assign({
-      id: tags.id,
-      user: tags['display-name'] || tags.username,
-      color: tags.color,
-      badges: SK.normalizeBadges('twitch', tags.badges),
-      segments: SK.parseTwitchEmotes(text, tags.emotes)
-    }, extra));
-
-    client.on('roomstate', (ch, state) => {
-      if (live() && state && state['room-id']) loadChannelEmotes('twitch:' + state['room-id']);
-    });
-    client.on('message', (ch, tags, text, self) => {
-      if (!live() || self || tags['message-type'] === 'whisper') return;
-      const first = tags['first-msg'] === true || tags['first-msg'] === '1';
-      chatPush(twitchMsg(tags, text, { action: tags['message-type'] === 'action', first }));
-    });
-    client.on('cheer', (ch, tags, text) => {
-      if (!live()) return;
-      chatPush(twitchMsg(tags, text, { highlight: true }));
-      onStreamEvent({ type: 'cheer', platform: 'twitch', user: tags['display-name'] || tags.username, amount: +tags.bits || 0 });
-    });
-    client.on('subscription', (ch, user, methods, msg, tags) => {
-      if (live()) onStreamEvent({ type: 'sub', platform: 'twitch', user: (tags && tags['display-name']) || user });
-    });
-    client.on('resub', (ch, user, months, msg, tags) => {
-      if (live()) onStreamEvent({ type: 'resub', platform: 'twitch', user: (tags && tags['display-name']) || user, months: +(tags && tags['msg-param-cumulative-months']) || months || 0 });
-    });
-    client.on('submysterygift', (ch, user, count, methods, tags) => {
-      if (!live()) return;
-      Chat.giftBombs[String(user).toLowerCase()] = (Chat.giftBombs[String(user).toLowerCase()] || 0) + (+count || 0);
-      onStreamEvent({ type: 'gift', platform: 'twitch', user: (tags && tags['display-name']) || user, count: +count || 1 });
-    });
-    client.on('subgift', (ch, user, streak, recipient, methods, tags) => {
-      if (!live()) return;
-      const key = String(user).toLowerCase();
-      /* subs individuais de uma "gift bomb" já foram anunciados no alerta agrupado */
-      if (Chat.giftBombs[key] > 0) { Chat.giftBombs[key]--; return; }
-      onStreamEvent({ type: 'gift', platform: 'twitch', user: (tags && tags['display-name']) || user, count: 1, recipient });
-    });
-    client.on('raided', (ch, user, viewers) => {
-      if (live()) onStreamEvent({ type: 'raid', platform: 'twitch', user, viewers: +viewers || 0 });
-    });
-    client.on('messagedeleted', (ch, user, msg, tags) => {
-      const id = 'twitch:' + (tags && tags['target-msg-id']);
-      chatRemove(m => m.id === id);
-    });
-    const removeUser = (ch, user) => {
-      const key = 'twitch:' + String(user).toLowerCase();
-      chatRemove(m => m.userKey === key);
-    };
-    client.on('timeout', removeUser);
-    client.on('ban', removeUser);
-    client.on('clearchat', () => chatRemove(m => m.platform === 'twitch'));
-
-    t.client = client;
-    await client.connect();
-    if (gen !== t.gen) return;
-    t.fails = 0;
-    console.log('[twitch] conectado em #' + channel);
-  } catch (e) {
-    if (gen !== t.gen) return;
-    if (client) { try { client.disconnect(); } catch (_) {} }
-    t.client = null;
+    for (const line of String(e.data).split('\r\n')) {
+      if (!line) continue;
+      if (line.startsWith('PING')) { ws.send('PONG' + line.slice(4)); continue; }
+      handleTwitchLine(line);
+    }
+  };
+  ws.onclose = () => {
+    if (t.ws !== ws) return;
+    t.ws = null;
     t.fails++;
     const wait = retryDelay(t.fails);
-    console.warn(`[twitch] falhou (${(e && e.message) || e}); nova tentativa em ${wait / 1000}s`);
+    console.warn(`[twitch] conexão caiu; nova tentativa em ${wait / 1000}s`);
     t.retry = setTimeout(() => {
       t.retry = null;
       if (chatWants().twitch) connectTwitch(cfg.TWITCH.channel);
     }, wait);
-  } finally {
-    if (gen === t.gen) t.connecting = false;
+  };
+}
+
+function handleTwitchLine(line) {
+  const a = SK.twitchIrc(SK.parseIrc(line));
+  if (!a) return;
+  switch (a.kind) {
+    case 'joined':
+      Chat.twitch.fails = 0;
+      console.log('[twitch] conectado em #' + Chat.twitch.channel);
+      break;
+    case 'room':
+      loadChannelEmotes('twitch:' + a.roomId);
+      break;
+    case 'message':
+      chatPush(makeMessage('twitch', a));
+      break;
+    case 'delete': {
+      const id = 'twitch:' + a.id;
+      chatRemove(m => m.id === id);
+      break;
+    }
+    case 'ban': {
+      const key = 'twitch:' + a.user;
+      chatRemove(m => m.userKey === key);
+      break;
+    }
+    case 'clear':
+      chatRemove(m => m.platform === 'twitch');
+      break;
   }
+  if (a.event) onStreamEvent(a.event);
 }
 
 /* ---------- KICK ---------- */
@@ -583,7 +548,9 @@ async function connectKick(slug) {
   disconnectKick();
   k.slug = slug; k.room = room;
 
-  const ws = new WebSocket(KICK_PUSHER);
+  const keys = kickKeys();
+  const key = keys[k.keyIdx % keys.length];
+  const ws = new WebSocket(kickPusherUrl(key));
   k.ws = ws;
   ws.onopen = () => {
     for (const channel of [`chatrooms.${room}.v2`, `chatroom_${room}`]) {
@@ -596,6 +563,12 @@ async function connectKick(slug) {
   ws.onmessage = ev => {
     let msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
     if (msg.event === 'pusher:ping') { ws.send(JSON.stringify({ event: 'pusher:pong', data: {} })); return; }
+    if (msg.event === 'pusher:error') {
+      const d = typeof msg.data === 'string' ? (() => { try { return JSON.parse(msg.data); } catch (_) { return {}; } })() : (msg.data || {});
+      /* 4001 = chave inválida/aposentada → tenta a próxima já */
+      if (d.code === 4001) { k.keyIdx++; k.fails = 0; console.warn('[kick] chave ' + key + ' recusada; tentando outra'); }
+      return;
+    }
     if (!msg.event || msg.event.startsWith('pusher')) return;
     let d; try { d = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data; } catch (_) { return; }
     if (!d) return;

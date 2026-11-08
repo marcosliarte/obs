@@ -67,7 +67,7 @@ function onFieldEvent(e) {
 
 function afterFieldChange(path, el) {
   if (path === 'CHAT.kickChannel') { cfg.CHAT.kickChatroomId = ''; disconnectKick(); syncPanelFields(); }
-  if (path === 'CHAT.kickChatroomId') disconnectKick();
+  if (path === 'CHAT.kickChatroomId' || path === 'CHAT.kickKey') { Chat.kick.keyIdx = 0; disconnectKick(); }
   if (path === 'SP.enabled') spSync();
   if (path === 'state.color') markColor();
   if (path.startsWith('chatFilter.')) chatRepaint();
