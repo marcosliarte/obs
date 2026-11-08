@@ -17,6 +17,8 @@
   const RNC_CORNERS = ['br', 'bl', 'tr', 'tl'];
   const RNC_SIZES = ['s', 'm', 'l'];
   const ALERT_TYPES = ['sub', 'resub', 'gift', 'raid', 'cheer'];
+  const CAM_ASPECTS = { '16:9': 225, '4:3': 300, '1:1': 400 };
+  const EMOTE_PLATFORMS = ['twitch', 'kick', 'bttv', 'ffz', '7tv'];
   const SIZES = { landscape: [1920, 1080], portrait: [1080, 1920] };
 
   const DEFAULT_BOTS = 'nightbot, streamelements, streamlabs, moobot, fossabot, wizebot, botrix, botrixoficial, kickbot';
@@ -35,13 +37,27 @@
         youtube: { on: false, handle: '' }
       },
       SP: { enabled: false, clientId: '', current: null },
+      /* todos os textos fixos do overlay; *palavra* vira negrito */
+      labels: {
+        now: 'Agora', playing: 'Jogando',
+        movie: 'Filme', series: 'Série', free: 'React',
+        reactPrefix: 'Reagindo a', episode: 'T{t} · E{e}', freeTitle: 'Reagindo com o *chat*',
+        chattingTag: 'Ao vivo', chatting: 'Just Chatting',
+        live: 'Ao vivo', chat: 'Chat', pinned: 'Destaque do chat', nowPlaying: 'Tocando agora',
+        first: 'Primeira vez', startIn: 'Começa em', backIn: 'Volto em', countdownDone: 'Agora',
+        recent: 'Último apoio', credits: 'Valeu pelo apoio'
+      },
+      layout: { camAspect: '4:3', showNick: true },
       endState: { message: 'Obrigado por assistir. Até a próxima live.' },
       CHAT: { mode: 'none', url: '', kickChannel: '', kickChatroomId: '', ytVideoId: '' },
       TWITCH: { channel: '' },
       bg: { type: 'none', color1: '#0a0a0c', color2: '#1a1a2e', angle: 135, imageUrl: '' },
       hideLive: false,
       square: false,
-      chatFilter: { hideCommands: true, hideBots: true, bots: DEFAULT_BOTS, blocked: '', showBadges: true },
+      chatFilter: {
+        hideCommands: true, hideBots: true, bots: DEFAULT_BOTS, blocked: '', showBadges: true,
+        extEmotes: true, highlightFirst: true, hideAfter: 0
+      },
       alerts: {
         enabled: false, sound: true, volume: 0.5, duration: 7,
         types: { sub: true, resub: true, gift: true, raid: true, cheer: true }
@@ -55,7 +71,10 @@
         chatting: { topic: 'Papo solto' }
       },
       pinned: null,
-      alertTest: null
+      pinnedFor: 0,
+      recent: { enabled: false, list: [] },
+      alertTest: null,
+      _editor: { id: '', at: 0 }
     };
   }
 
@@ -70,6 +89,16 @@
   function clampText(s, n) {
     s = String(s == null ? '' : s);
     return s.length > n ? s.slice(0, n) : s;
+  }
+
+  /* texto do usuário com *negrito* (escapa antes, então é seguro) */
+  function richText(str) {
+    return escapeHtml(str).replace(/\*([^*]+)\*/g, '<b>$1</b>');
+  }
+
+  /* "T{t} · E{e}" + { t: '3', e: '7' } → "T3 · E7" (valores escapados) */
+  function fillTemplate(tpl, vals) {
+    return escapeHtml(tpl).replace(/\{(\w+)\}/g, (m, k) => (k in vals ? escapeHtml(vals[k]) : m));
   }
 
   /* canal Twitch/Kick: minúsculo, sem @, só caracteres válidos */
@@ -166,10 +195,21 @@
     if (!Array.isArray(list)) return [];
     return list.slice(0, 80).map(s => {
       if (s && s.type === 'emote' && /^[\w-]{1,40}$/.test(String(s.id))) {
-        return { type: 'emote', id: String(s.id), name: clampText(s.name, 60), platform: s.platform === 'kick' ? 'kick' : 'twitch' };
+        return { type: 'emote', id: String(s.id), name: clampText(s.name, 60), platform: oneOf(s.platform, EMOTE_PLATFORMS, 'twitch') };
       }
       return { type: 'text', text: clampText(s && s.text, 500) };
     });
+  }
+
+  function normalizeRecent(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(isObj).slice(0, 20).map(a => ({
+      type: oneOf(a.type, ALERT_TYPES, 'sub'),
+      platform: a.platform === 'kick' ? 'kick' : 'twitch',
+      user: clampText(a.user, 40),
+      count: Math.max(0, Math.round(+a.count || 0)),
+      at: +a.at || 0
+    })).filter(a => a.user);
   }
 
   function normalizeConfig(raw) {
@@ -187,6 +227,13 @@
     rnc.size = oneOf(rnc.size, RNC_SIZES, 'm');
     rnc.corner = oneOf(rnc.corner, RNC_CORNERS, 'br');
     rnc.handle = clampText(rnc.handle, 40);
+
+    for (const k of Object.keys(c.labels)) c.labels[k] = clampText(c.labels[k], 80);
+    c.layout.camAspect = oneOf(c.layout.camAspect, Object.keys(CAM_ASPECTS), '4:3');
+    c.chatFilter.hideAfter = clampNum(Math.round(c.chatFilter.hideAfter), 0, 600);
+    c.pinnedFor = clampNum(Math.round(c.pinnedFor), 0, 3600);
+    c.recent.list = normalizeRecent(raw && raw.recent && raw.recent.list);
+    c._editor = { id: clampText(c._editor.id, 40), at: Math.max(0, c._editor.at) };
 
     c.CHAT.mode = oneOf(c.CHAT.mode, CHAT_MODES, 'none');
     c.CHAT.kickChannel = cleanChannel(c.CHAT.kickChannel);
@@ -207,7 +254,7 @@
 
     const cur = raw && raw.SP && raw.SP.current;
     c.SP.current = isObj(cur) && cur.title
-      ? { title: clampText(cur.title, 200), artist: clampText(cur.artist, 200), cover: safeUrl(cur.cover) }
+      ? { title: clampText(cur.title, 200), artist: clampText(cur.artist, 200), cover: safeUrl(cur.cover), until: Math.max(0, +cur.until || 0) }
       : null;
 
     const p = raw && raw.pinned;
@@ -270,10 +317,74 @@
   }
 
   function emoteUrl(seg) {
-    if (!/^[\w-]+$/.test(String(seg.id))) return '';
-    return seg.platform === 'kick'
-      ? `https://files.kick.com/emotes/${seg.id}/fullsize`
-      : `https://static-cdn.jtvnw.net/emoticons/v2/${seg.id}/default/dark/2.0`;
+    const id = String(seg.id);
+    if (!/^[\w-]+$/.test(id)) return '';
+    switch (seg.platform) {
+      case 'kick': return `https://files.kick.com/emotes/${id}/fullsize`;
+      case 'bttv': return `https://cdn.betterttv.net/emote/${id}/2x`;
+      case 'ffz': return `https://cdn.frankerfacez.com/emote/${id}/2`;
+      case '7tv': return `https://cdn.7tv.app/emote/${id}/2x.webp`;
+      default: return `https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/2.0`;
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+     Emotes de terceiros (7TV, BTTV, FFZ): resposta da API → lista
+     { name, id, platform }; depois aplicados palavra a palavra no texto
+  --------------------------------------------------------------------- */
+  function parseExtEmotes(platform, json) {
+    if (platform === 'bttv') {
+      const list = Array.isArray(json) ? json : isObj(json) ? [].concat(json.channelEmotes || [], json.sharedEmotes || []) : [];
+      return list.filter(isObj).map(e => ({ name: e.code, id: e.id, platform: 'bttv' }));
+    }
+    if (platform === 'ffz') {
+      return (Array.isArray(json) ? json : []).filter(isObj).map(e => ({ name: e.code, id: e.id, platform: 'ffz' }));
+    }
+    if (platform === '7tv') {
+      const set = isObj(json) && (json.emote_set || json);
+      const list = isObj(set) && Array.isArray(set.emotes) ? set.emotes : [];
+      return list.filter(isObj).map(e => ({ name: e.name, id: e.id, platform: '7tv' }));
+    }
+    return [];
+  }
+
+  /* listas → mapa nome → emote (só entradas válidas; a última lista vence) */
+  function emoteMap(lists) {
+    const map = Object.create(null);
+    for (const list of lists) for (const e of list || []) {
+      const name = String(e.name || ''), id = String(e.id || '');
+      if (name && name.length <= 60 && !/\s/.test(name) && /^[\w-]{1,40}$/.test(id)) map[name] = { id, platform: e.platform };
+    }
+    return map;
+  }
+
+  function applyEmoteMap(segments, map) {
+    if (!map || !Object.keys(map).length) return segments;
+    const out = [];
+    for (const s of segments) {
+      if (s.type !== 'text') { out.push(s); continue; }
+      let buf = '';
+      for (const part of s.text.split(/(\s+)/)) {
+        const e = part && map[part];
+        if (e) {
+          if (buf) out.push({ type: 'text', text: buf });
+          buf = '';
+          out.push({ type: 'emote', id: e.id, name: part, platform: e.platform });
+        } else buf += part;
+      }
+      if (buf) out.push({ type: 'text', text: buf });
+    }
+    return out;
+  }
+
+  /* só emotes (e espaços), até 6 → mostrados maiores */
+  function isEmoteOnly(segments) {
+    let n = 0;
+    for (const s of segments || []) {
+      if (s.type === 'emote') n++;
+      else if (String(s.text).trim()) return false;
+    }
+    return n > 0 && n <= 6;
   }
 
   function segmentsToHtml(segments) {
@@ -377,6 +488,121 @@
     return String(str || '').split('|').map(s => s.trim()).filter(Boolean).slice(0, 12);
   }
 
+  /* evento do Pusher do Kick → ação padronizada (o chat.js executa) */
+  function kickEvent(name, d) {
+    d = isObj(d) ? d : {};
+    switch (name) {
+      case 'ChatMessageEvent': {
+        const s = d.sender || {}, id = s.identity || {};
+        return { kind: 'message', id: d.id, user: s.username, color: id.color,
+          badges: normalizeBadges('kick', id.badges), segments: parseKickContent(d.content) };
+      }
+      case 'MessageDeletedEvent': return { kind: 'delete', id: (d.message && d.message.id) || d.id };
+      case 'UserBannedEvent': return { kind: 'ban', user: String((d.user && d.user.username) || '').toLowerCase() };
+      case 'ChatroomClearEvent': return { kind: 'clear' };
+      case 'SubscriptionEvent':
+        return { kind: 'event', key: 'sub:' + d.username + ':' + d.months,
+          event: { type: +d.months > 1 ? 'resub' : 'sub', platform: 'kick', user: d.username, months: +d.months || 0 } };
+      case 'GiftedSubscriptionsEvent': {
+        const names = Array.isArray(d.gifted_usernames) ? d.gifted_usernames : [];
+        const n = names.length || 1;
+        return { kind: 'event', key: 'gift:' + d.gifter_username + ':' + n,
+          event: { type: 'gift', platform: 'kick', user: d.gifter_username || 'Anônimo', count: n, recipient: n === 1 ? (names[0] || '') : '' } };
+      }
+      case 'StreamHostEvent':
+        return { kind: 'event', key: 'host:' + d.host_username,
+          event: { type: 'raid', platform: 'kick', user: d.host_username, viewers: +d.number_viewers || 0 } };
+      case 'KicksGifted': {
+        const user = (d.sender && d.sender.username) || d.username;
+        const amount = +((d.gift && d.gift.amount) || d.amount) || 0;
+        if (!user) return null;
+        return { kind: 'event', key: 'kicks:' + user + ':' + amount + ':' + (d.gift && d.gift.gift_id),
+          event: { type: 'cheer', platform: 'kick', user, amount } };
+      }
+    }
+    return null;
+  }
+
+  /* ---------------------------------------------------------------------
+     Expiração de widgets
+  --------------------------------------------------------------------- */
+  /* Spotify: o painel grava até quando a faixa toca; painel fechado → some */
+  function trackActive(cur, now) { return !!cur && (!cur.until || now < cur.until); }
+  function pinnedActive(p, seconds, now) { return !!p && (!seconds || !p.at || now - p.at < seconds * 1000); }
+
+  /* últimos apoios: junta listas (painel + OBS) sem duplicar, mais novo primeiro */
+  function recentKey(a) { return [a.type, a.platform, String(a.user).toLowerCase(), a.count, Math.floor(a.at / 60000)].join('|'); }
+  function mergeRecent(...lists) {
+    const seen = new Set(), out = [];
+    for (const a of [].concat(...lists).sort((x, y) => y.at - x.at)) {
+      const k = recentKey(a);
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(a);
+    }
+    return out.slice(0, 20);
+  }
+  function recentFromEvent(a, now) {
+    const count = a.count || a.amount || a.viewers || a.months || 0;
+    return normalizeRecent([{ type: a.type, platform: a.platform, user: a.user, count, at: now }])[0] || null;
+  }
+  function recentText(a) {
+    if (!a) return '';
+    switch (a.type) {
+      case 'gift': return a.count > 1 ? `${a.count} subs de presente` : 'sub de presente';
+      case 'resub': return a.count ? `resub · ${plural(a.count, 'mês', 'meses')}` : 'resub';
+      case 'raid': return a.count ? `${a.platform === 'kick' ? 'host' : 'raid'} · ${a.count}` : (a.platform === 'kick' ? 'host' : 'raid');
+      case 'cheer': return `${a.count} ${a.platform === 'kick' ? 'kicks' : 'bits'}`;
+      default: return 'sub';
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+     Encaixe de fontes no OBS (obs-websocket)
+     box: janela do overlay em pixels do canvas do OBS
+     src: tamanho nativo da fonte. 'cover' corta o excesso (sem barras),
+     'contain' cabe inteira (sobra fundo). Crop é em pixels da fonte.
+  --------------------------------------------------------------------- */
+  function fitTransform(box, src, mode) {
+    const sw = +src.width, sh = +src.height;
+    if (!(sw > 0 && sh > 0 && box.w > 0 && box.h > 0)) return null;
+    const base = { rotation: 0, alignment: 5, boundsType: 'OBS_BOUNDS_NONE', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 };
+    if (mode === 'contain') {
+      const s = Math.min(box.w / sw, box.h / sh);
+      return Object.assign(base, {
+        positionX: box.x + (box.w - sw * s) / 2, positionY: box.y + (box.h - sh * s) / 2, scaleX: s, scaleY: s
+      });
+    }
+    const s = Math.max(box.w / sw, box.h / sh);
+    const cx = Math.max(0, Math.floor((sw - box.w / s) / 2)), cy = Math.max(0, Math.floor((sh - box.h / s) / 2));
+    return Object.assign(base, {
+      positionX: box.x, positionY: box.y,
+      scaleX: box.w / (sw - 2 * cx), scaleY: box.h / (sh - 2 * cy),
+      cropLeft: cx, cropRight: cx, cropTop: cy, cropBottom: cy
+    });
+  }
+
+  /* Fonte Navegador do overlay: a página desenha o palco W×H no canto
+     superior esquerdo, escalado para caber na fonte (sw×sh). Mapeia esse
+     palco para o canvas inteiro do OBS, cortando a sobra à direita/embaixo. */
+  function overlayTransform(canvas, src, W, H) {
+    const sw = +src.width, sh = +src.height;
+    if (!(sw > 0 && sh > 0)) return null;
+    const s = Math.min(sw / W, sh / H);
+    const vw = Math.round(W * s), vh = Math.round(H * s);
+    return {
+      rotation: 0, alignment: 5, boundsType: 'OBS_BOUNDS_NONE', positionX: 0, positionY: 0,
+      scaleX: canvas.width / vw, scaleY: canvas.height / vh,
+      cropLeft: 0, cropTop: 0, cropRight: Math.max(0, sw - vw), cropBottom: Math.max(0, sh - vh)
+    };
+  }
+
+  /* proporção legível: 400×225 → "16:9" */
+  function aspectLabel(w, h) {
+    const known = [['16:9', 16 / 9], ['9:16', 9 / 16], ['4:3', 4 / 3], ['3:4', 3 / 4], ['1:1', 1], ['21:9', 21 / 9]];
+    const r = w / h, hit = known.find(([, v]) => Math.abs(v - r) / v < 0.015);
+    return hit ? hit[0] : r.toFixed(2) + ':1';
+  }
+
   function plural(n, one, many) { return `${n} ${n === 1 ? one : many}`; }
 
   /* textos do alerta para cada tipo de evento */
@@ -416,9 +642,11 @@
   }
 
   return {
-    SCENES, FORMATS, CHAT_MODES, BG_TYPES, ALERT_TYPES, SIZES,
+    SCENES, FORMATS, CHAT_MODES, BG_TYPES, ALERT_TYPES, SIZES, CAM_ASPECTS,
     defaults, normalizeConfig, mergeShape,
-    escapeHtml, clampText, cleanChannel, safeUrl,
+    escapeHtml, richText, fillTemplate, clampText, cleanChannel, safeUrl,
+    parseExtEmotes, emoteMap, applyEmoteMap, isEmoteOnly, kickEvent,
+    trackActive, pinnedActive, mergeRecent, recentFromEvent, recentText, fitTransform, overlayTransform, aspectLabel,
     isHexColor, hexToRgb, hexToRgba, contrastText, userColor, readableNameColor,
     parseTwitchEmotes, parseKickContent, segmentsToHtml, segmentsToText, emoteUrl,
     normalizeBadges, splitList, shouldHideMessage, parseNowPlaying,

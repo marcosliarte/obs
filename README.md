@@ -23,10 +23,15 @@ O painel mostra um preview em escala que é **idêntico** ao que o OBS renderiza
 
 - **Chat real** da Twitch e do Kick (separados ou juntos), com emotes, selos (streamer, mod, VIP, sub), filtro de comandos, bots e palavras, e remoção automática de mensagens apagadas ou de usuários banidos. YouTube e widgets externos entram por iframe.
 - **Alertas** na tela para inscrição, reinscrição, sub de presente (agrupa "gift bombs"), raid/host e bits/kicks, com som. Botões de teste no painel disparam o alerta também no OBS.
-- **Destaque do chat:** clique numa mensagem no preview para fixá-la na tela.
+- **Encaixe automático no OBS:** o painel conecta no obs-websocket (já vem no OBS 28 ou mais novo), e cada webcam, jogo ou vídeo é posicionado, escalado e cortado para preencher a janela exata. Acabou o recorte manual com Alt.
+- **Todos os textos editáveis:** etiquetas, "Reagindo a", formato do episódio, selo "Ao vivo" e títulos dos widgets, com `*negrito*`.
+- **Emotes 7TV, BTTV e FFZ**, emotes maiores em mensagens só de emote, selo de **primeira mensagem** e opção de **mensagens sumirem** após X segundos.
+- **Último apoio** no rodapé e **agradecimento aos apoiadores** na tela de encerramento.
+- **Reconexão automática** do chat e **atualização instantânea** do OBS via Supabase Realtime (com polling de reserva).
+- **Destaque do chat:** clique numa mensagem no preview para fixá-la na tela. Ele pode sair sozinho após N segundos.
 - **Barra de meta** com botões +1/+5. Opcionalmente soma subs sozinha.
 - **Contagem regressiva** nas telas Começando e Volto já (5, 10 ou 15 min, ou até um horário).
-- **Tocando agora** do Spotify com capa do álbum (OAuth PKCE, sem backend).
+- **Tocando agora** do Spotify com capa do álbum (OAuth PKCE, sem backend). Se o painel for fechado, o widget some quando a faixa acaba, sem ficar preso na tela.
 - **Redes sociais**, cor de destaque com contraste automático do texto, fundo (cor, gradiente ou imagem) recortado nas janelas de câmera e jogo.
 - **Textos editáveis** das telas cheias (título, destaque, texto, letreiro).
 - **Vários overlays** com `?id=` e **chave de escrita** para impedir que outras pessoas alterem a sua config.
@@ -58,7 +63,9 @@ O passo a passo completo está em [COMO-USAR.md](COMO-USAR.md).
 
 ## Segurança
 
-A chave do Supabase no código é pública por natureza. Sem proteção, qualquer pessoa com ela consegue alterar o que aparece na sua live. Para fechar isso, rode [`supabase/setup.sql`](supabase/setup.sql) e informe a chave de escrita no painel, na seção **Segurança**. O arquivo `teste-supabase.html` confere leitura, escrita e se a proteção está ativa.
+**Versão e cache:** ao mudar o código, suba a versão em `package.json`, em `APP_VERSION` (`js/env.js`) e nos `?v=` do `index.html`. O `npm test` falha se os três não baterem. Isso impede o OBS de misturar arquivos novos e antigos do cache.
+
+A chave do Supabase no código é pública por natureza. Sem proteção, qualquer pessoa com ela consegue alterar o que aparece na sua live. Para fechar isso, rode [`supabase/setup.sql`](supabase/setup.sql) e informe a chave de escrita no painel, na seção **Segurança**. O arquivo `teste-supabase.html` confere leitura, escrita e se a proteção está ativa. O passo 4 do script liga o Realtime, para o OBS receber as mudanças na hora.
 
 ## Estrutura
 
@@ -73,6 +80,7 @@ js/chat.js            conexões Twitch/Kick, histórico, moderação, eventos
 js/alerts.js          fila de alertas e som
 js/spotify.js         OAuth PKCE e faixa atual
 js/scenes.js          layouts das cenas, widgets, fundo e escala
+js/obs.js             encaixe automático das fontes via obs-websocket
 js/panel.js           painel (campos com data-bind)
 js/main.js            inicialização e polling do OBS
 supabase/setup.sql    tabela, leitura pública e chave de escrita
@@ -87,6 +95,7 @@ Precisam de Node 18+ e Chrome ou Edge instalados. Não há dependências npm.
 npm test               # funções puras (node:test)
 npm run test:browser   # todas as cenas, nos 2 formatos, no Chrome headless
 npm run test:panel     # simula o uso do painel (digitar, clicar, salvar)
+npm run test:obs       # encaixe automático contra um OBS simulado
 npm run test:all
 ```
 

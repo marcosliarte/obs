@@ -21,7 +21,9 @@ const isOBS = params.get('obs') === '1';
 const OFFLINE = params.get('offline') === '1';
 const DEBUG = params.get('debug') === '1';
 const OVERLAY_ID = (params.get('id') || 'default').replace(/[^\w-]/g, '').slice(0, 40) || 'default';
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';   /* mantenha igual ao package.json e aos ?v= do index.html (o teste confere) */
+/* identifica este painel: outro painel aberto que salvar é reconhecido */
+const EDITOR_ID = Math.random().toString(36).slice(2, 10);
 
 /* Supabase — chave "publishable" (pública por natureza). A escrita deve ser
    protegida pela chave de escrita: veja supabase/setup.sql */

@@ -5,7 +5,21 @@
 ========================================================================= */
 const Alerts = { queue: [], showing: false, lastTestId: undefined, audio: null };
 
+/* últimos apoios: o OBS guarda os que ele mesmo viu (o painel pode estar
+   fechado) e junta com a lista salva pelo painel */
+const Recent = { local: [] };
+function recentList() { return SK.mergeRecent(cfg.recent.list, Recent.local); }
+
+function recordRecent(a) {
+  const item = SK.recentFromEvent(a, Date.now());
+  if (!item) return;
+  if (isOBS) { Recent.local = SK.mergeRecent([item], Recent.local); return; }
+  cfg.recent.list = SK.mergeRecent([item], cfg.recent.list);
+  if (cfg.recent.enabled) { renderWidgets(); scheduleSave(); }
+}
+
 function onStreamEvent(a) {
+  recordRecent(a);
   if (!isOBS && cfg.goal.autoSubs && ['sub', 'resub', 'gift'].includes(a.type)) {
     cfg.goal.current += a.type === 'gift' ? (a.count || 1) : 1;
     syncPanelFields();

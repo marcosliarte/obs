@@ -13,7 +13,7 @@ const SCENE_LABELS = {
   chatting: 'Just Chatting', irl: 'IRL', start: 'Começando', brb: 'Volto já', end: 'Encerramento'
 };
 const COLOR_PRESETS = ['#d6f24b', '#4f8cff', '#ff4d6d', '#ff8a3d', '#22c7a9', '#a77bff', '#f5f5f5'];
-const WIDGET_PATHS = /^(goal|social|SP)\./;
+const WIDGET_PATHS = /^(goal|social|SP|recent)\.|^pinnedFor$/;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -72,6 +72,7 @@ function afterFieldChange(path, el) {
   if (path === 'state.color') markColor();
   if (path.startsWith('chatFilter.')) chatRepaint();
   if (path.startsWith('reactNoChat.')) updateRncUI();
+  if (path === 'chatFilter.hideAfter' || path === 'chatFilter.highlightFirst') chatRepaint();
   const typing = el.type === 'text' || el.type === 'number' || el.tagName === 'TEXTAREA';
   commit({ widgetsOnly: WIDGET_PATHS.test(path), delay: typing ? 160 : 0 });
 }
@@ -98,6 +99,7 @@ function syncPanelFields() {
   updateCountdownUI();
   updateWriteKeyUI();
   updateRncUI();
+  updateRecentUI();
 }
 
 /* onde encaixar a webcam no OBS (muda com tamanho, canto e faixa do @) */
@@ -134,6 +136,22 @@ function updatePinnedUI() {
   const p = cfg.pinned;
   box.hidden = !p;
   if (p) $('#pinnedText').innerHTML = `<b>${SK.escapeHtml(p.user)}</b> ${SK.segmentsToHtml(p.segments)}`;
+}
+
+/* destaque com tempo: quando expira, sai também da config */
+function expirePinned() {
+  if (cfg.pinned && !SK.pinnedActive(cfg.pinned, cfg.pinnedFor, Date.now())) {
+    cfg.pinned = null;
+    updatePinnedUI();
+    commit({ widgetsOnly: true });
+  }
+}
+
+function updateRecentUI() {
+  const el = $('#recentState');
+  if (!el) return;
+  const n = recentList().length;
+  el.textContent = n ? `${n} ${n === 1 ? 'apoio registrado' : 'apoios registrados'} nesta live` : 'Nenhum apoio registrado ainda';
 }
 
 function updateCountdownUI() {
@@ -209,6 +227,9 @@ const ACTIONS = {
     alertPush(SK.sampleAlert(type));
     scheduleSave();
   },
+  'recent-clear': () => { cfg.recent.list = []; Recent.local = []; updateRecentUI(); commit({ widgetsOnly: true }); },
+  'obs-connect': () => obsToggle(),
+  'obs-fit': () => obsFitNow(),
   'unpin': () => { cfg.pinned = null; updatePinnedUI(); commit({ widgetsOnly: true }); },
   'spotify-auth': () => { if (SP.accessToken) spDisconnect(); else spLogin(); },
   'links-toggle': () => {
@@ -280,4 +301,6 @@ function initPanel() {
     if (cfg.SP.enabled) spPoll();
   });
   setInterval(updateCountdownUI, 15000);
+  setInterval(() => { expirePinned(); updateRecentUI(); }, 2000);
+  initObsPanel();
 }

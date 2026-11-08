@@ -6,6 +6,8 @@
 ========================================================================= */
 const Store = {
   lastStatus: null,
+  lastSaveAt: 0,
+  rt: { ws: null, joined: false, ref: 0, hb: null, retry: null, fails: 0 },
 
   writeKey() { return safeStorage(() => localStorage.getItem('sk_write_key') || '', ''); },
   setWriteKey(v) { safeStorage(() => v ? localStorage.setItem('sk_write_key', v) : localStorage.removeItem('sk_write_key')); },
@@ -49,8 +51,41 @@ const Store = {
     }
   },
 
+  /* Realtime do Supabase: avisa na hora que a linha mudou (o polling vira
+     reserva). Só usamos o aviso para recarregar — o conteúdo vem do SELECT.
+     Requer a tabela na publicação supabase_realtime (supabase/setup.sql). */
+  realtime(onChange) {
+    if (OFFLINE || typeof WebSocket === 'undefined') return;
+    const rt = this.rt;
+    const url = SUPABASE_URL.replace(/^http/, 'ws') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(SUPABASE_KEY) + '&vsn=1.0.0';
+    const topic = 'realtime:streamkit-' + OVERLAY_ID;
+    let ws;
+    try { ws = new WebSocket(url); } catch (_) { return; }
+    rt.ws = ws;
+    const send = (t, event, payload) => { try { ws.send(JSON.stringify({ topic: t, event, payload, ref: String(++rt.ref) })); } catch (_) {} };
+    ws.onopen = () => {
+      send(topic, 'phx_join', { config: { broadcast: { self: false }, presence: { key: '' },
+        postgres_changes: [{ event: '*', schema: 'public', table: 'streamkit_config', filter: 'id=eq.' + OVERLAY_ID }] } });
+      rt.hb = setInterval(() => send('phoenix', 'heartbeat', {}), 25000);
+    };
+    ws.onmessage = e => {
+      let m; try { m = JSON.parse(e.data); } catch (_) { return; }
+      if (m.topic !== topic) return;
+      if (m.event === 'phx_reply' && m.payload && m.payload.status === 'ok') { rt.joined = true; rt.fails = 0; }
+      if (m.event === 'postgres_changes') onChange();
+    };
+    ws.onclose = () => {
+      clearInterval(rt.hb);
+      rt.joined = false;
+      if (rt.ws !== ws) return;
+      rt.fails++;
+      rt.retry = setTimeout(() => this.realtime(onChange), Math.min(60000, 2000 * Math.pow(2, rt.fails)));
+    };
+  },
+
   async save(config) {
     if (OFFLINE) { this.status('warn', 'Offline — não salvo'); return false; }
+    this.lastSaveAt = Date.now();
     const key = this.writeKey();
     try {
       if (key) {
@@ -100,5 +135,9 @@ function scheduleSave() {
   if (isOBS) return;
   Store.status('warn', 'Salvando…');
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => Store.save(cfg), 500);
+  _saveTimer = setTimeout(() => {
+    _saveTimer = null;
+    cfg._editor = { id: EDITOR_ID, at: Date.now() };
+    Store.save(cfg);
+  }, 500);
 }

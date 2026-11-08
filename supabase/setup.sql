@@ -73,3 +73,12 @@ revoke insert, update, delete on public.streamkit_config from anon, authenticate
 
 -- Vários overlays: crie outra linha de chave com o id desejado (ex.: 'canal2')
 -- e abra o painel com ?id=canal2.
+
+-- 4) Atualização instantânea (Realtime) --------------------------------------
+-- Faz o OBS receber as mudanças do painel na hora (alerta de teste, destaque,
+-- meta). Sem isto tudo continua funcionando, só que com ~2,5 s de atraso.
+do $$
+begin
+  alter publication supabase_realtime add table public.streamkit_config;
+exception when duplicate_object then null;
+end $$;

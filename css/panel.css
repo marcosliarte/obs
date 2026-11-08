@@ -291,3 +291,17 @@ body.obs .preview-frame { position: fixed; left: 0; top: 0; border-radius: 0; bo
   .topbar-right .chip { display: none; }
   .sync { min-width: 0; }
 }
+
+/* ===================== ENCAIXE NO OBS ===================== */
+.fit-list { display: flex; flex-direction: column; gap: 6px; }
+.fit-row {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px;
+  background: var(--p-input);
+  border: 1px solid var(--p-border);
+  border-radius: 4px;
+}
+.fit-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.fit-head .mono { color: var(--p-muted); font-size: 11px; }
+.fit-ctl { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.fit-ctl select { min-width: 0; }

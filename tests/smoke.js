@@ -80,7 +80,7 @@ function baseChecks(label, dom) {
 const EXPECT = {
   game:      ['class="win win-cam', 'class="win win-game', 'data-chat', 'class="info"', 'class="goal', 'class="np"', 'class="soc ', 'class="pin"', 'class="msg'],
   react:     ['class="win win-video', 'Breaking Bad', 'T3 · E7', 'data-chat', 'class="goal', 'class="np"'],
-  reactfree: ['class="win win-video', 'Reagindo <b>ao vivo</b>', 'data-chat'],
+  reactfree: ['class="win win-video', 'Reagindo com o <b>chat</b>', 'data-chat'],
   react2cam: ['Webcam 1', 'Webcam 2', 'class="goal', 'class="np"'],
   reactnochat: ['class="win win-video is-bare', 'class="rnc"', 'class="rnc-handle"'],
   chatting:  ['Webcam principal', 'data-chat', 'class="goal'],
@@ -142,7 +142,44 @@ for (const format of ['landscape', 'portrait']) {
   check('url: square aplicado', /class="stage landscape scene-game is-square/.test(dom));
 }
 
-/* 6. OBS em tamanho diferente de 1920×1080 escala o palco */
+/* 6. textos editáveis, webcam 16:9, último apoio e agradecimento */
+{
+  const custom = Object.assign({}, FIXTURE, {
+    reactState: { type: 'series', title: 'Dark', season: '2', episode: '5' },
+    labels: { series: 'Maratona', reactPrefix: '', episode: 'Temp. {t} Ep. {e}', live: 'On', chat: 'Papo', freeTitle: 'Vendo *junto*' },
+    layout: { camAspect: '16:9', showNick: false },
+    recent: { enabled: true, list: [{ type: 'gift', platform: 'twitch', user: 'Ana', count: 5, at: Date.now() }] }
+  });
+  const dom = load(url({ obs: '1', scene: 'react', format: 'landscape' }, custom), '1920,1080');
+  baseChecks('textos', dom);
+  check('textos: etiqueta da série', dom.includes('>Maratona<'));
+  check('textos: sem prefixo "Reagindo a"', !dom.includes('Reagindo a') && dom.includes('<b>Dark</b>'));
+  check('textos: modelo do episódio', dom.includes('Temp. 2 Ep. 5'));
+  check('textos: selo e título do chat', dom.includes('</i>On</div>') && dom.includes('>Papo<'));
+  check('textos: nick oculto na faixa', !dom.includes('class="info-meta"'));
+  check('webcam 16:9: 400 × 225', /data-key="cam"/.test(dom) && dom.includes('left:1480px;top:40px;width:400px;height:225px;'));
+  check('webcam 16:9: chat ocupa o resto', dom.includes('left:1480px;top:289px;width:400px;height:751px;'));
+  check('último apoio no rodapé', dom.includes('class="recent') && dom.includes('5 subs de presente'));
+
+  const free = load(url({ obs: '1', scene: 'reactfree', format: 'landscape' }, custom), '1920,1080');
+  check('texto livre com negrito', free.includes('Vendo <b>junto</b>'));
+  const end = load(url({ obs: '1', scene: 'end', format: 'landscape' }, custom), '1920,1080');
+  check('encerramento agradece apoiadores', end.includes('class="credits"') && end.includes('Ana'));
+}
+
+/* 7. música expirada (painel fechado) e destaque com tempo somem */
+{
+  const stale = Object.assign({}, FIXTURE, {
+    SP: { enabled: true, current: { title: 'Velha', artist: 'X', until: Date.now() - 1000 } },
+    pinnedFor: 5, pinned: Object.assign({}, FIXTURE.pinned, { at: Date.now() - 60000 })
+  });
+  const dom = load(url({ obs: '1', scene: 'game', format: 'landscape' }, stale), '1920,1080');
+  baseChecks('expiração', dom);
+  check('expiração: música vencida não aparece', !dom.includes('class="np"'));
+  check('expiração: destaque vencido não aparece', !dom.includes('class="pin"'));
+}
+
+/* 8. OBS em tamanho diferente de 1920×1080 escala o palco */
 {
   const dom = load(url({ obs: '1', scene: 'game', format: 'landscape' }, FIXTURE), '1280,720');
   check('escala: 1280×720 reduz o palco para caber', fitsWindow(dom, '1280,720', 'landscape') && stageScale(dom) < 0.67);

@@ -91,10 +91,13 @@ function spDisconnect() {
   syncPanelFields();
 }
 
-/* só salva quando a faixa realmente muda */
+/* Só salva quando a faixa muda. `until` = quando a faixa acaba: se o painel
+   for fechado com música tocando, o OBS esconde o widget sozinho. */
 function spSetCurrent(track) {
-  const a = JSON.stringify(cfg.SP.current), b = JSON.stringify(track);
-  if (a === b) return;
+  const cur = cfg.SP.current;
+  const same = cur && track && cur.title === track.title && cur.artist === track.artist && cur.cover === track.cover;
+  if (!cur && !track) return;
+  if (same && Math.abs((cur.until || 0) - (track.until || 0)) < 15000) return;
   cfg.SP.current = track;
   renderWidgets();
   scheduleSave();
@@ -103,7 +106,10 @@ function spSetCurrent(track) {
 async function spFetchFile() {
   try {
     const r = await fetch('now-playing.txt?t=' + Date.now(), { cache: 'no-store' });
-    spSetCurrent(r.ok ? SK.parseNowPlaying(await r.text()) : null);
+    const t = r.ok ? SK.parseNowPlaying(await r.text()) : null;
+    /* arquivo não diz quando acaba: validade em blocos de 10 min */
+    if (t) t.until = Math.ceil(Date.now() / 600000) * 600000 + 600000;
+    spSetCurrent(t);
   } catch (_) { spSetCurrent(null); }
 }
 
@@ -120,7 +126,8 @@ async function spPoll() {
     if (!d.is_playing || !d.item) { spSetCurrent(null); return; }
     const imgs = (d.item.album && d.item.album.images) || [];
     const cover = (imgs.find(i => i.width && i.width <= 300) || imgs[imgs.length - 1] || {}).url || '';
-    spSetCurrent({ title: d.item.name, artist: (d.item.artists || []).map(a => a.name).join(', '), cover });
+    const left = Math.max(0, (d.item.duration_ms || 0) - (d.progress_ms || 0));
+    spSetCurrent({ title: d.item.name, artist: (d.item.artists || []).map(a => a.name).join(', '), cover, until: Date.now() + left + 8000 });
   } catch (_) { /* rede instável — tenta no próximo ciclo */ }
 }
 

@@ -10,10 +10,15 @@ const Chat = {
   containers: new Set(),
   seen: new Set(),
   mockTimer: null,
-  twitch: { client: null, channel: '', connecting: false, scriptPromise: null },
-  kick: { ws: null, room: '', slug: '', pingTimer: null, retryTimer: null, seenEvents: new Map() },
+  twitch: { client: null, channel: '', connecting: false, scriptPromise: null, gen: 0, retry: null, fails: 0 },
+  kick: { ws: null, room: '', slug: '', pingTimer: null, retryTimer: null, fails: 0, seenEvents: new Map() },
+  /* emotes 7TV / BTTV / FFZ: globais + canais conectados */
+  ext: { global: null, channels: {}, map: {} },
   giftBombs: {}
 };
+
+/* espera entre tentativas: 3s, 6s, 12s… até 60s */
+function retryDelay(fails) { return Math.min(60000, 3000 * Math.pow(2, Math.max(0, fails - 1))); }
 
 const KICK_PUSHER = 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false';
 const MOCK_USERS = ['marina_o', 'pedrohq', 'cafe_amargo', 'ju.design', 'rafa_dev', 'lis_pod', 'thomas.b', 'ana_bea', 'gui_santos', 'dudu99'];
@@ -44,6 +49,8 @@ function chatSync() {
 
   if (w.kick) connectKick(cfg.CHAT.kickChannel);
   else disconnectKick();
+
+  if (cfg.chatFilter.extEmotes && (w.twitch || w.kick || w.mock)) loadGlobalEmotes();
 
   if (w.mock && !Chat.mockTimer) mockTick();
   if (!w.mock && Chat.mockTimer) { clearTimeout(Chat.mockTimer); Chat.mockTimer = null; }
@@ -95,9 +102,15 @@ function chatHintText() {
   return '';
 }
 
+function chatVisibleNow(m, now) {
+  const secs = cfg.chatFilter.hideAfter;
+  return !secs || now - m.at < secs * 1000;
+}
+
 function paintContainer(el) {
   el.innerHTML = '';
-  const list = Chat.history.slice(-25);
+  const now = Date.now();
+  const list = Chat.history.slice(-25).filter(m => chatVisibleNow(m, now));
   for (const m of list) el.prepend(messageEl(m));
   if (!list.length && !isOBS) {
     const hint = chatHintText();
@@ -112,17 +125,33 @@ function chatRepaint() {
   }
 }
 
+/* mensagens somem depois de X segundos (opcional) — chamado a cada 1s */
+function chatSweep() {
+  const secs = cfg.chatFilter.hideAfter;
+  if (!secs) return;
+  const limit = Date.now() - secs * 1000;
+  for (const el of Chat.containers) {
+    el.querySelectorAll('.msg:not(.is-out)').forEach(n => {
+      if (+n.dataset.at < limit) { n.classList.add('is-out'); setTimeout(() => n.remove(), 500); }
+    });
+  }
+}
+
 function messageEl(m) {
   const el = document.createElement('div');
-  el.className = 'msg' + (m.action ? ' is-action' : '') + (m.highlight ? ' is-highlight' : '');
+  const first = m.first && cfg.chatFilter.highlightFirst;
+  el.className = 'msg' + (m.action ? ' is-action' : '') + (m.highlight ? ' is-highlight' : '')
+    + (first ? ' is-first' : '') + (SK.isEmoteOnly(m.segments) ? ' is-emote-only' : '');
   el.dataset.id = m.id;
   el.dataset.user = m.userKey;
+  el.dataset.at = m.at;
   el.style.setProperty('--name', m.color);
   const plat = cfg.CHAT.mode === 'multi' && m.platform !== 'test'
     ? `<span class="msg-plat ${m.platform}">${m.platform === 'kick' ? 'K' : 'T'}</span>` : '';
   const badges = cfg.chatFilter.showBadges
     ? m.badges.map(b => `<span class="msg-badge b-${b}">${BADGE_LABEL[b]}</span>`).join('') : '';
-  el.innerHTML = `${plat}${badges}<span class="msg-name">${SK.escapeHtml(m.user)}</span><span class="msg-text">${SK.segmentsToHtml(m.segments)}</span>`;
+  const firstTag = first ? `<span class="msg-first">${SK.escapeHtml(cfg.labels.first)}</span>` : '';
+  el.innerHTML = `${firstTag}${plat}${badges}<span class="msg-name">${SK.escapeHtml(m.user)}</span><span class="msg-text">${SK.segmentsToHtml(m.segments)}</span>`;
   return el;
 }
 
@@ -137,6 +166,7 @@ function chatPush(m) {
   if (!visible || SK.shouldHideMessage(m, cfg.chatFilter)) return;
 
   m.color = SK.readableNameColor(m.color, m.user);
+  if (cfg.chatFilter.extEmotes) m.segments = SK.applyEmoteMap(m.segments, Chat.ext.map);
   Chat.history.push(m);
   if (Chat.history.length > Chat.maxHistory) Chat.history.shift();
 
@@ -158,7 +188,7 @@ function chatRemove(pred) {
   }
 }
 
-function makeMessage(platform, { id, user, color, badges, segments, action, highlight }) {
+function makeMessage(platform, { id, user, color, badges, segments, action, highlight, first }) {
   const name = SK.clampText(user || 'usuário', 32);
   return {
     id: platform + ':' + (id || Date.now() + Math.random()),
@@ -169,7 +199,9 @@ function makeMessage(platform, { id, user, color, badges, segments, action, high
     badges: badges || [],
     segments: segments || [],
     action: !!action,
-    highlight: !!highlight
+    highlight: !!highlight,
+    first: !!first,
+    at: Date.now()
   };
 }
 
@@ -179,8 +211,52 @@ function mockTick() {
   const text = MOCK_TEXTS[Math.random() * MOCK_TEXTS.length | 0];
   const roll = Math.random();
   const badges = roll < 0.12 ? ['mod'] : roll < 0.4 ? ['sub'] : [];
-  chatPush(makeMessage('test', { user, badges, segments: [{ type: 'text', text }] }));
+  chatPush(makeMessage('test', { user, badges, segments: [{ type: 'text', text }], first: Math.random() < 0.06 }));
   Chat.mockTimer = setTimeout(mockTick, 1400 + Math.random() * 2200);
+}
+
+/* ---------- emotes 7TV / BTTV / FFZ ---------- */
+function extFetch(url) {
+  return fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
+}
+
+function rebuildEmoteMap() {
+  const lists = [].concat(Chat.ext.global || [], ...Object.values(Chat.ext.channels));
+  Chat.ext.map = SK.emoteMap(lists);
+}
+
+async function loadGlobalEmotes() {
+  if (OFFLINE || Chat.ext.global) return;
+  Chat.ext.global = [];
+  const [bttv, ffz, stv] = await Promise.all([
+    extFetch('https://api.betterttv.net/3/cached/emotes/global'),
+    extFetch('https://api.betterttv.net/3/cached/frankerfacez/emotes/global'),
+    extFetch('https://7tv.io/v3/emote-sets/global')
+  ]);
+  Chat.ext.global = [SK.parseExtEmotes('ffz', ffz), SK.parseExtEmotes('bttv', bttv), SK.parseExtEmotes('7tv', stv)];
+  rebuildEmoteMap();
+}
+
+/* key: "twitch:<room-id>" ou "kick:<user_id>" — cada canal carrega uma vez */
+async function loadChannelEmotes(key) {
+  if (OFFLINE || !cfg.chatFilter.extEmotes || Chat.ext.channels[key]) return;
+  Chat.ext.channels[key] = [];
+  const [plat, id] = key.split(':');
+  if (!/^\d+$/.test(id)) return;
+  let lists;
+  if (plat === 'twitch') {
+    const [bttv, ffz, stv] = await Promise.all([
+      extFetch(`https://api.betterttv.net/3/cached/users/twitch/${id}`),
+      extFetch(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${id}`),
+      extFetch(`https://7tv.io/v3/users/twitch/${id}`)
+    ]);
+    lists = [SK.parseExtEmotes('ffz', ffz), SK.parseExtEmotes('bttv', bttv), SK.parseExtEmotes('7tv', stv)];
+  } else {
+    lists = [SK.parseExtEmotes('7tv', await extFetch(`https://7tv.io/v3/users/kick/${id}`))];
+  }
+  Chat.ext.channels[key] = [].concat(...lists);
+  rebuildEmoteMap();
+  console.log(`[emotes] ${Chat.ext.channels[key].length} emotes de ${key}`);
 }
 
 /* ---------- TWITCH ---------- */
@@ -199,24 +275,31 @@ function loadTmi() {
 
 function disconnectTwitch() {
   const t = Chat.twitch;
+  t.gen++;
+  clearTimeout(t.retry); t.retry = null;
   if (t.client) { try { t.client.disconnect(); } catch (_) {} }
   t.client = null; t.channel = ''; t.connecting = false;
 }
 
+/* Conecta uma vez; se falhar (CDN do tmi.js fora, rede instável) tenta de
+   novo sozinho — no OBS ninguém está olhando para recarregar a fonte.
+   t.gen invalida tentativas antigas quando o canal muda no meio. */
 async function connectTwitch(channel) {
   const t = Chat.twitch;
-  if (OFFLINE || !channel || t.connecting || t.client) return;
+  if (OFFLINE || !channel || t.connecting || t.client || t.retry) return;
+  const gen = ++t.gen;
   t.connecting = true;
   t.channel = channel;
+  let client = null;
   try {
     await loadTmi();
-    if (t.channel !== channel) return;
-    const client = new window.tmi.Client({
+    if (gen !== t.gen) return;
+    client = new window.tmi.Client({
       channels: [channel],
       connection: { reconnect: true, secure: true },
       options: { skipUpdatingEmotesets: true }
     });
-    const live = () => client === t.client;
+    const live = () => gen === t.gen && client === t.client;
     const twitchMsg = (tags, text, extra) => makeMessage('twitch', Object.assign({
       id: tags.id,
       user: tags['display-name'] || tags.username,
@@ -225,9 +308,13 @@ async function connectTwitch(channel) {
       segments: SK.parseTwitchEmotes(text, tags.emotes)
     }, extra));
 
+    client.on('roomstate', (ch, state) => {
+      if (live() && state && state['room-id']) loadChannelEmotes('twitch:' + state['room-id']);
+    });
     client.on('message', (ch, tags, text, self) => {
       if (!live() || self || tags['message-type'] === 'whisper') return;
-      chatPush(twitchMsg(tags, text, { action: tags['message-type'] === 'action' }));
+      const first = tags['first-msg'] === true || tags['first-msg'] === '1';
+      chatPush(twitchMsg(tags, text, { action: tags['message-type'] === 'action', first }));
     });
     client.on('cheer', (ch, tags, text) => {
       if (!live()) return;
@@ -269,12 +356,22 @@ async function connectTwitch(channel) {
 
     t.client = client;
     await client.connect();
+    if (gen !== t.gen) return;
+    t.fails = 0;
     console.log('[twitch] conectado em #' + channel);
   } catch (e) {
-    console.warn('[twitch] falhou:', e);
-    t.client = null; t.channel = '';
+    if (gen !== t.gen) return;
+    if (client) { try { client.disconnect(); } catch (_) {} }
+    t.client = null;
+    t.fails++;
+    const wait = retryDelay(t.fails);
+    console.warn(`[twitch] falhou (${(e && e.message) || e}); nova tentativa em ${wait / 1000}s`);
+    t.retry = setTimeout(() => {
+      t.retry = null;
+      if (chatWants().twitch) connectTwitch(cfg.TWITCH.channel);
+    }, wait);
   } finally {
-    t.connecting = false;
+    if (gen === t.gen) t.connecting = false;
   }
 }
 
@@ -287,6 +384,7 @@ async function resolveKickChatroom(slug) {
       if (!r.ok) continue;
       const j = await r.json();
       const id = j && j.chatroom && j.chatroom.id;
+      if (j && j.user_id) loadChannelEmotes('kick:' + j.user_id);
       if (id) {
         cfg.CHAT.kickChatroomId = String(id);
         if (!isOBS) { syncPanelFields(); scheduleSave(); }
@@ -296,6 +394,14 @@ async function resolveKickChatroom(slug) {
   }
   console.warn('[kick] não consegui descobrir o chatroom de "' + slug + '". Preencha manualmente no painel.');
   return '';
+}
+
+function scheduleKickRetry() {
+  const k = Chat.kick;
+  clearTimeout(k.retryTimer);
+  k.fails++;
+  const wait = retryDelay(k.fails);
+  k.retryTimer = setTimeout(() => { if (chatWants().kick) connectKick(cfg.CHAT.kickChannel); }, wait);
 }
 
 function disconnectKick() {
@@ -322,7 +428,8 @@ async function connectKick(slug) {
   k.resolving = true;
   const room = await resolveKickChatroom(slug);
   k.resolving = false;
-  if (!room || cfg.CHAT.kickChannel !== slug) return;
+  if (cfg.CHAT.kickChannel !== slug) return;
+  if (!room) { scheduleKickRetry(); return; }
   if (k.ws && k.room === room) return;
   disconnectKick();
   k.slug = slug; k.room = room;
@@ -333,6 +440,7 @@ async function connectKick(slug) {
     for (const channel of [`chatrooms.${room}.v2`, `chatroom_${room}`]) {
       ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel } }));
     }
+    k.fails = 0;
     k.pingTimer = setInterval(() => { try { ws.send(JSON.stringify({ event: 'pusher:ping', data: {} })); } catch (_) {} }, 60000);
     console.log('[kick] conectado na sala ' + room);
   };
@@ -348,55 +456,32 @@ async function connectKick(slug) {
     clearInterval(k.pingTimer);
     if (k.ws !== ws) return;
     k.ws = null;
-    k.retryTimer = setTimeout(() => { if (chatWants().kick) connectKick(cfg.CHAT.kickChannel); }, 5000);
+    scheduleKickRetry();
   };
 }
 
 function handleKickEvent(name, d) {
-  switch (name) {
-    case 'ChatMessageEvent': {
-      const s = d.sender || {};
-      const id = s.identity || {};
-      chatPush(makeMessage('kick', {
-        id: d.id, user: s.username, color: id.color,
-        badges: SK.normalizeBadges('kick', id.badges),
-        segments: SK.parseKickContent(d.content)
-      }));
+  const a = SK.kickEvent(name, d);
+  if (!a) return;
+  switch (a.kind) {
+    case 'message':
+      chatPush(makeMessage('kick', a));
       break;
-    }
-    case 'MessageDeletedEvent': {
-      const id = 'kick:' + ((d.message && d.message.id) || d.id);
+    case 'delete': {
+      const id = 'kick:' + a.id;
       chatRemove(m => m.id === id);
       break;
     }
-    case 'UserBannedEvent': {
-      const key = 'kick:' + String((d.user && d.user.username) || '').toLowerCase();
+    case 'ban': {
+      const key = 'kick:' + a.user;
       chatRemove(m => m.userKey === key);
       break;
     }
-    case 'ChatroomClearEvent':
+    case 'clear':
       chatRemove(m => m.platform === 'kick');
       break;
-    case 'SubscriptionEvent':
-      if (!kickEventSeen('sub:' + d.username + ':' + d.months))
-        onStreamEvent({ type: (+d.months > 1 ? 'resub' : 'sub'), platform: 'kick', user: d.username, months: +d.months || 0 });
+    case 'event':
+      if (!kickEventSeen(a.key)) onStreamEvent(a.event);
       break;
-    case 'GiftedSubscriptionsEvent': {
-      const n = Array.isArray(d.gifted_usernames) ? d.gifted_usernames.length : 1;
-      if (!kickEventSeen('gift:' + d.gifter_username + ':' + n))
-        onStreamEvent({ type: 'gift', platform: 'kick', user: d.gifter_username || 'Anônimo', count: n, recipient: n === 1 ? d.gifted_usernames[0] : '' });
-      break;
-    }
-    case 'StreamHostEvent':
-      if (!kickEventSeen('host:' + d.host_username))
-        onStreamEvent({ type: 'raid', platform: 'kick', user: d.host_username, viewers: +d.number_viewers || 0 });
-      break;
-    case 'KicksGifted': {
-      const user = (d.sender && d.sender.username) || d.username;
-      const amount = +((d.gift && d.gift.amount) || d.amount) || 0;
-      if (user && !kickEventSeen('kicks:' + user + ':' + amount + ':' + (d.gift && d.gift.gift_id)))
-        onStreamEvent({ type: 'cheer', platform: 'kick', user, amount });
-      break;
-    }
   }
 }

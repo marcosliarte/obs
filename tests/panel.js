@@ -176,6 +176,36 @@ async function main() {
     await T.sleep(50);
     return ok && T.$('#linksPop').hidden`));
 
+  check('textos do React livre são editáveis', await run(`
+    T.click('[data-scene="reactfree"]');
+    await T.sleep(50);
+    const inputs = [...document.querySelectorAll('[data-bind="labels.freeTitle"]')].filter(i => !i.closest('[hidden]'));
+    inputs[0].focus(); inputs[0].value = 'Assistindo *junto*'; inputs[0].dispatchEvent(new Event('input', { bubbles: true })); inputs[0].blur();
+    await T.sleep(400);
+    return inputs.length === 1 && cfg.labels.freeTitle === 'Assistindo *junto*' && T.$('#scene .info-title').innerHTML.includes('<b>junto</b>')`));
+
+  check('formato da webcam muda a janela e a lista de encaixe', await run(`
+    T.click('[data-format="landscape"]');
+    T.click('[data-scene="game"]');
+    await T.sleep(50);
+    T.select('[data-bind="layout.camAspect"]', '16:9');
+    await T.sleep(300);
+    const cam = holeRects().find(r => r.key === 'cam');
+    const row = [...document.querySelectorAll('#fitList .fit-row')].find(r => r.textContent.includes('Webcam'));
+    return cam.w === 400 && cam.h === 225 && !!row && row.textContent.includes('1480, 40 · 400 × 225 · 16:9')`));
+
+  check('mensagens somem após o tempo configurado', await run(`
+    T.type('[data-bind="chatFilter.hideAfter"]', '1');
+    for (let i = 0; i < 40 && !T.$('#scene .msg'); i++) await T.sleep(100);
+    const had = !!T.$('#scene .msg');
+    await T.sleep(2600);
+    const old = [...document.querySelectorAll('#scene .msg')].filter(n => Date.now() - +n.dataset.at > 2000).length;
+    T.type('[data-bind="chatFilter.hideAfter"]', '0');
+    return had && old === 0`));
+
+  check('senha do OBS nunca vai para a config', await run(`
+    return !JSON.stringify(cfg).includes('4455') && !('obs' in cfg)`));
+
   check('nenhum erro de JS durante a sessão', await run(`return window.__skErrors.length === 0`),
     await run(`return window.__skErrors.join(' | ')`));
 

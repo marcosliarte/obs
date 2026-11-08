@@ -12,25 +12,29 @@ let stageScale = 1;
 
 const px = (l, t, w, h) => `left:${l}px;top:${t}px;width:${w}px;height:${h}px;`;
 
+const liveBadge = (extra = '') => cfg.hideLive ? '' : `<div class="live-badge${extra}"><i></i>${esc(cfg.labels.live)}</div>`;
+
+/* data-key/data-label: o painel lista as janelas para encaixar as fontes no OBS */
 function hole(kind, pos, label, hint, opts = {}) {
-  const live = opts.live && !cfg.hideLive ? `<div class="live-badge"><i></i>Ao vivo</div>` : '';
+  const live = opts.live ? liveBadge() : '';
+  const key = opts.key || kind;
   return `
     <div class="win win-${kind}${opts.accent ? ' is-accent' : ''}${opts.bare ? ' is-bare' : ''}" style="${pos}">
-      <div class="win-body hole">
+      <div class="win-body hole" data-key="${key}" data-label="${esc(opts.title || label)}">
         <div class="ph"><span class="ph-label">${label}</span><span class="ph-hint">${hint}</span></div>
         ${live}
       </div>
     </div>`;
 }
 
-const camWin = (pos, label = 'Webcam') => hole('cam', pos, label, 'Dispositivo de captura de vídeo', { accent: true, live: true });
-const gameWin = pos => hole('game', pos, 'Captura de jogo', 'Game capture · 16:9');
-const videoWin = pos => hole('video', pos, reactPlaceholder(), 'Navegador · mídia · captura de tela');
+const camWin = (pos, label = 'Webcam', key = 'cam') => hole('cam', pos, label, 'Dispositivo de captura de vídeo', { accent: true, live: true, key });
+const gameWin = pos => hole('game', pos, 'Captura de jogo', 'Game capture · 16:9', { title: 'Jogo' });
+const videoWin = pos => hole('video', pos, reactPlaceholder(), 'Navegador · mídia · captura de tela', { title: 'Vídeo' });
 
 function chatWin(pos) {
   return `
     <div class="win win-chat" style="${pos}">
-      <div class="win-bar"><span class="bar-mark"></span><span class="bar-label">Chat</span><span class="bar-meta" data-clock></span></div>
+      <div class="win-bar"><span class="bar-mark"></span><span class="bar-label">${esc(cfg.labels.chat)}</span><span class="bar-meta" data-clock></span></div>
       <div class="win-body"><div class="chat" data-chat></div></div>
     </div>`;
 }
@@ -40,7 +44,7 @@ function infoStrip(pos, tag, titleHtml) {
     <div class="info" style="${pos}">
       <span class="info-tag">${esc(tag)}</span>
       <span class="info-title">${titleHtml}</span>
-      <span class="info-meta">${esc(cfg.gameState.nick)}</span>
+      ${cfg.layout.showNick ? `<span class="info-meta">${esc(cfg.gameState.nick)}</span>` : ''}
     </div>`;
 }
 
@@ -49,6 +53,7 @@ function footerRow(pos) {
     <div class="footer-row" style="${pos}">
       <div class="slot" data-slot="spotify"></div>
       <div class="slot" data-slot="social"></div>
+      <div class="slot" data-slot="recent"></div>
       <div class="grow"></div>
       <div class="slot" data-slot="goal"></div>
     </div>`;
@@ -62,13 +67,15 @@ function reactPlaceholder() {
   return r.type === 'free' ? 'Tela, vídeo ou qualquer fonte' : esc(r.title || 'Janela de vídeo');
 }
 function reactTag() {
-  return { series: 'Série', free: 'React', movie: 'Filme' }[cfg.reactState.type];
+  return cfg.labels[cfg.reactState.type];
 }
-function reactTitleHtml(prefix) {
-  const r = cfg.reactState;
-  if (r.type === 'free') return `${prefix ? 'Reagindo ' : ''}<b>ao vivo</b>`;
-  let h = `${prefix ? 'Reagindo a ' : ''}<b>${esc(r.title || '—')}</b>`;
-  if (r.type === 'series') h += `<span class="sep"></span>T${esc(r.season || '1')} · E${esc(r.episode || '1')}`;
+/* todos os textos vêm de cfg.labels (editáveis no painel) */
+function reactTitleHtml() {
+  const r = cfg.reactState, L = cfg.labels;
+  if (r.type === 'free') return SK.richText(L.freeTitle);
+  const prefix = L.reactPrefix.trim();
+  let h = `${prefix ? esc(prefix) + ' ' : ''}<b>${esc(r.title || '—')}</b>`;
+  if (r.type === 'series' && L.episode.trim()) h += `<span class="sep"></span>${SK.fillTemplate(L.episode, { t: r.season || '1', e: r.episode || '1' })}`;
   if (r.note) h += `<span class="sep"></span><span class="dim">${esc(r.note)}</span>`;
   return h;
 }
@@ -97,7 +104,7 @@ function rncFrame(fmt) {
   const vars = `--rnc-c:${r.color};--rnc-on:${SK.contrastText(r.color)};--rnc-b:${r.border}px;--rnc-strip:${strip}px;`;
   return `
     <div class="rnc" style="${px(l, t, w, h + strip)}${vars}">
-      <div class="rnc-cam hole" style="height:${h}px">
+      <div class="rnc-cam hole" data-key="cam" data-label="Webcam" style="height:${h}px">
         <div class="ph"><span class="ph-label">Webcam</span><span class="ph-hint">${w} × ${h}</span></div>
       </div>
       ${strip ? `<div class="rnc-handle"><span class="rnc-at">@</span><span class="rnc-name">${esc(rncHandle())}</span></div>` : ''}
@@ -122,68 +129,78 @@ const L = {
   pPinned: 'left:72px;top:72px;max-width:760px;'
 };
 
+/* coluna direita (paisagem): webcam na proporção escolhida, chat ocupa o resto */
+function sideColumn() {
+  const h = SK.CAM_ASPECTS[cfg.layout.camAspect] || 300;
+  return { cam: px(1480, 40, 400, h), chat: px(1480, 40 + h + 24, 400, 1080 - 40 - (40 + h + 24)) };
+}
+
 const Scenes = {
   game(fmt) {
-    const g = cfg.gameState;
-    const title = `Jogando <b>${esc(g.name)}</b>`;
-    if (fmt === 'landscape') return gameWin(L.main) + camWin(L.cam) + chatWin(L.chat)
-      + infoStrip(L.info, 'Agora', title) + footerRow(L.footer) + slot('pinned', L.pinned);
-    return camWin(L.pTop) + gameWin(L.pMid) + infoStrip(L.pInfo, 'Agora', title)
+    const g = cfg.gameState, L2 = cfg.labels;
+    const title = `${esc(L2.playing)} <b>${esc(g.name)}</b>`;
+    const side = sideColumn();
+    if (fmt === 'landscape') return gameWin(L.main) + camWin(side.cam) + chatWin(side.chat)
+      + infoStrip(L.info, L2.now, title) + footerRow(L.footer) + slot('pinned', L.pinned);
+    return camWin(L.pTop) + gameWin(L.pMid) + infoStrip(L.pInfo, L2.now, title)
       + footerRow(L.pFooter) + chatWin(L.pChat) + slot('pinned', 'left:72px;top:659px;max-width:760px;');
   },
 
   react(fmt) {
-    if (fmt === 'landscape') return videoWin(L.main) + camWin(L.cam) + chatWin(L.chat)
-      + infoStrip(L.info, reactTag(), reactTitleHtml(true)) + footerRow(L.footer) + slot('pinned', L.pinned);
-    return videoWin(L.pTop) + camWin(L.pMid) + infoStrip(L.pInfo, reactTag(), reactTitleHtml(false))
+    const side = sideColumn();
+    if (fmt === 'landscape') return videoWin(L.main) + camWin(side.cam) + chatWin(side.chat)
+      + infoStrip(L.info, reactTag(), reactTitleHtml()) + footerRow(L.footer) + slot('pinned', L.pinned);
+    return videoWin(L.pTop) + camWin(L.pMid) + infoStrip(L.pInfo, reactTag(), reactTitleHtml())
       + footerRow(L.pFooter) + chatWin(L.pChat) + slot('pinned', L.pPinned);
   },
 
   reactfree(fmt) {
-    const title = 'Reagindo <b>ao vivo</b>';
-    const video = pos => hole('video', pos, 'Tela, vídeo ou qualquer fonte', 'Navegador · mídia · captura de tela');
-    if (fmt === 'landscape') return video(L.main) + camWin(L.cam) + chatWin(L.chat)
-      + infoStrip(L.info, 'React', title) + footerRow(L.footer) + slot('pinned', L.pinned);
-    return video(L.pTop) + camWin(L.pMid) + infoStrip(L.pInfo, 'React', title)
+    const title = SK.richText(cfg.labels.freeTitle), tag = cfg.labels.free;
+    const video = pos => hole('video', pos, 'Tela, vídeo ou qualquer fonte', 'Navegador · mídia · captura de tela', { title: 'Vídeo' });
+    const side = sideColumn();
+    if (fmt === 'landscape') return video(L.main) + camWin(side.cam) + chatWin(side.chat)
+      + infoStrip(L.info, tag, title) + footerRow(L.footer) + slot('pinned', L.pinned);
+    return video(L.pTop) + camWin(L.pMid) + infoStrip(L.pInfo, tag, title)
       + footerRow(L.pFooter) + chatWin(L.pChat) + slot('pinned', L.pPinned);
   },
 
   react2cam(fmt) {
     const showInfo = cfg.reactState.type !== 'free';
     if (fmt === 'landscape') return videoWin(L.main)
-      + camWin(px(1480, 40, 400, 488), 'Webcam 1') + camWin(px(1480, 552, 400, 488), 'Webcam 2')
-      + (showInfo ? infoStrip(L.info, reactTag(), reactTitleHtml(true)) : '')
+      + camWin(px(1480, 40, 400, 488), 'Webcam 1', 'cam1') + camWin(px(1480, 552, 400, 488), 'Webcam 2', 'cam2')
+      + (showInfo ? infoStrip(L.info, reactTag(), reactTitleHtml()) : '')
       + footerRow(showInfo ? L.footer : px(40, 852, 1400, 92)) + slot('pinned', L.pinned);
     return videoWin(L.pTop)
-      + camWin(px(40, 627, 488, 663), 'Webcam 1') + camWin(px(552, 627, 488, 663), 'Webcam 2')
-      + (showInfo ? infoStrip(px(40, 1314, 1000, 80), reactTag(), reactTitleHtml(false)) : '')
+      + camWin(px(40, 627, 488, 663), 'Webcam 1', 'cam1') + camWin(px(552, 627, 488, 663), 'Webcam 2', 'cam2')
+      + (showInfo ? infoStrip(px(40, 1314, 1000, 80), reactTag(), reactTitleHtml()) : '')
       + footerRow(px(40, showInfo ? 1418 : 1314, 1000, 172)) + slot('pinned', L.pPinned);
   },
 
   /* vídeo sem moldura + webcam com borda fina e faixa do @ (sem chat, sem "Ao vivo") */
   reactnochat(fmt) {
-    const video = pos => hole('video', pos, 'Vídeo ou qualquer fonte', 'Sem borda · encaixe livre', { bare: true });
+    const video = pos => hole('video', pos, 'Vídeo ou qualquer fonte', 'Sem borda · encaixe livre', { bare: true, title: 'Vídeo' });
     if (fmt === 'landscape') return video(px(0, 0, 1920, 1080)) + rncFrame(fmt);
     const { cam: [, t, , h], strip } = rncGeom(fmt);
     return video(L.pTop) + rncFrame(fmt) + footerRow(px(40, t + h + strip + 24, 1000, 172));
   },
 
   chatting(fmt) {
-    const title = `Just Chatting<span class="sep"></span><b>${esc(cfg.texts.chatting.topic)}</b>`;
+    const L2 = cfg.labels;
+    const title = `${L2.chatting.trim() ? esc(L2.chatting) + '<span class="sep"></span>' : ''}<b>${esc(cfg.texts.chatting.topic)}</b>`;
     if (fmt === 'landscape') return hole('cam', L.main, 'Webcam principal', 'Dispositivo de captura de vídeo', { accent: true, live: true })
-      + chatWin(px(1480, 40, 400, 1000)) + infoStrip(L.info, 'Ao vivo', title)
+      + chatWin(px(1480, 40, 400, 1000)) + infoStrip(L.info, L2.chattingTag, title)
       + footerRow(L.footer) + slot('pinned', 'left:72px;bottom:284px;max-width:640px;');
     return hole('cam', px(40, 40, 1000, 1100), 'Webcam principal', 'Dispositivo de captura de vídeo', { accent: true, live: true })
-      + infoStrip(px(40, 1164, 1000, 80), 'Ao vivo', title) + footerRow(px(40, 1268, 1000, 172))
+      + infoStrip(px(40, 1164, 1000, 80), L2.chattingTag, title) + footerRow(px(40, 1268, 1000, 172))
       + chatWin(px(40, 1518, 1000, 362)) + slot('pinned', 'left:72px;bottom:812px;max-width:760px;');
   },
 
   irl(fmt) {
     const land = fmt === 'landscape';
-    const live = cfg.hideLive ? '' : `<div class="live-badge live-irl"><i></i>Ao vivo</div>`;
+    const live = liveBadge(' live-irl');
     return `
       <div class="win win-irl" style="left:0;top:0;width:100%;height:100%;">
-        <div class="win-body hole">
+        <div class="win-body hole" data-key="irl" data-label="Câmera IRL">
           <div class="ph"><span class="ph-label">Câmera IRL</span><span class="ph-hint">Webcam, celular ou câmera de ação</span></div>
         </div>
       </div>
@@ -211,7 +228,7 @@ function fullscreen(kind) {
   const duration = Math.max(18, items.join('').length * 0.35);
   const countdown = kind === 'end' ? '' : `
     <div class="fs-countdown" data-countdown hidden>
-      <span class="cd-label">${kind === 'start' ? 'Começa em' : 'Volto em'}</span>
+      <span class="cd-label">${esc(kind === 'start' ? cfg.labels.startIn : cfg.labels.backIn)}</span>
       <span class="cd-value">00:00</span>
     </div>`;
   return `
@@ -225,6 +242,7 @@ function fullscreen(kind) {
         <h1 class="fs-title"><span>${esc(t.title)}</span><em>${esc(t.highlight)}</em></h1>
         ${sub ? `<p class="fs-sub">${esc(sub)}</p>` : ''}
         ${countdown}
+        ${kind === 'end' ? '<div class="slot" data-slot="credits"></div>' : ''}
         <div class="slot fs-socials" data-slot="social"></div>
       </div>
       ${items.length ? `
@@ -262,13 +280,13 @@ function socialHtml() {
 
 function spotifyHtml() {
   const cur = cfg.SP.current;
-  if (!cfg.SP.enabled || !cur) return '';
+  if (!cfg.SP.enabled || !SK.trackActive(cur, Date.now())) return '';
   const cover = cur.cover ? `<img src="${esc(cur.cover)}" alt="">` : MUSIC_ICON;
   return `
     <div class="np">
       <span class="np-cover">${cover}</span>
       <span class="np-text">
-        <span class="np-kicker"><span class="eq"><i></i><i></i><i></i></span>Tocando agora</span>
+        <span class="np-kicker"><span class="eq"><i></i><i></i><i></i></span>${esc(cfg.labels.nowPlaying)}</span>
         <span class="np-title">${esc(cur.title)}</span>
         ${cur.artist ? `<span class="np-artist">${esc(cur.artist)}</span>` : ''}
       </span>
@@ -288,12 +306,32 @@ function goalHtml() {
 
 function pinnedHtml() {
   const p = cfg.pinned;
-  if (!p) return '';
+  if (!SK.pinnedActive(p, cfg.pinnedFor, Date.now())) return '';
   return `
     <div class="pin" style="--name:${esc(SK.readableNameColor(p.color, p.user))}">
-      <div class="pin-head"><span class="pin-tag">Destaque do chat</span><span class="pin-name">${esc(p.user)}</span></div>
+      <div class="pin-head"><span class="pin-tag">${esc(cfg.labels.pinned)}</span><span class="pin-name">${esc(p.user)}</span></div>
       <div class="pin-text">${SK.segmentsToHtml(p.segments)}</div>
     </div>`;
+}
+
+/* último apoio no rodapé */
+function recentHtml() {
+  if (!cfg.recent.enabled) return '';
+  const a = recentList()[0];
+  if (!a) return '';
+  return `
+    <div class="recent plat-${a.platform}">
+      <span class="recent-tag">${esc(cfg.labels.recent)}</span>
+      <span class="recent-text"><b>${esc(a.user)}</b><span>${esc(SK.recentText(a))}</span></span>
+    </div>`;
+}
+
+/* agradecimento a quem apoiou na live (tela de encerramento) */
+function creditsHtml() {
+  if (!cfg.recent.enabled) return '';
+  const names = [...new Set(recentList().filter(a => a.type !== 'raid').map(a => a.user))].slice(0, 12);
+  if (!names.length) return '';
+  return `<div class="credits"><span class="credits-tag">${esc(cfg.labels.credits)}</span><span class="credits-names">${names.map(esc).join('<i></i>')}</span></div>`;
 }
 
 function renderWidgets() {
@@ -306,6 +344,8 @@ function renderWidgets() {
   fill('spotify', spotifyHtml());
   fill('goal', goalHtml());
   fill('pinned', pinnedHtml());
+  fill('recent', recentHtml());
+  fill('credits', creditsHtml());
 }
 
 /* =========================================================================
@@ -334,6 +374,7 @@ function renderScene() {
   tickClocks();
   fitStage();
   applyBackground();
+  if (!isOBS) obsRenderUI();
 }
 
 function fitStage() {
@@ -359,6 +400,8 @@ function fitStage() {
 /* relógios e contagem regressiva */
 function tickClocks() {
   const now = Date.now();
+  renderWidgets();
+  chatSweep();
   const clock = SK.formatClock(new Date(now));
   document.querySelectorAll('[data-clock]').forEach(el => { if (el.textContent !== clock) el.textContent = clock; });
 
@@ -371,7 +414,7 @@ function tickClocks() {
     if (!visible) return;
     el.classList.toggle('is-over', left <= 0);
     const v = el.querySelector('.cd-value');
-    const text = left > 0 ? SK.formatCountdown(left) : 'Agora';
+    const text = left > 0 ? SK.formatCountdown(left) : cfg.labels.countdownDone;
     if (v.textContent !== text) v.textContent = text;
   });
 }
@@ -426,6 +469,21 @@ function applyBackground() {
   } else paintCanvas(canvas, null);
 }
 
+/* janelas transparentes da cena em pixels do overlay (sem escala) */
+function holeRects() {
+  const stage = document.getElementById('stage');
+  if (!stage) return [];
+  const sr = stage.getBoundingClientRect();
+  return Array.from(document.querySelectorAll('#scene .hole')).map(el => {
+    const r = el.getBoundingClientRect();
+    return {
+      key: el.dataset.key || 'win', label: el.dataset.label || 'Janela',
+      x: Math.round((r.left - sr.left) / stageScale), y: Math.round((r.top - sr.top) / stageScale),
+      w: Math.round(r.width / stageScale), h: Math.round(r.height / stageScale)
+    };
+  });
+}
+
 function paintCanvas(canvas, img) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height, b = cfg.bg;
@@ -445,11 +503,6 @@ function paintCanvas(canvas, img) {
   }
   /* recortes: coordenadas sem escala (divide pelo scale do palco) */
   ctx.globalCompositeOperation = 'destination-out';
-  const sr = document.getElementById('stage').getBoundingClientRect();
-  document.querySelectorAll('#scene .hole').forEach(el => {
-    const r = el.getBoundingClientRect();
-    ctx.fillRect(Math.round((r.left - sr.left) / stageScale), Math.round((r.top - sr.top) / stageScale),
-      Math.round(r.width / stageScale), Math.round(r.height / stageScale));
-  });
+  holeRects().forEach(r => ctx.fillRect(r.x, r.y, r.w, r.h));
   ctx.globalCompositeOperation = 'source-over';
 }

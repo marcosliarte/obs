@@ -568,3 +568,64 @@ body.obs .ph { display: none; }
   color: rgba(255, 255, 255, 0.4);
   pointer-events: none;
 }
+
+/* ===================== CHAT: v3.1 ===================== */
+.msg.is-first {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 3px 0 0 var(--name, var(--accent));
+}
+.msg-first {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  font-family: var(--display); font-weight: 700;
+  font-size: 0.66em; line-height: 1.6;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  vertical-align: 0.14em;
+  border-radius: 2px;
+  background: var(--accent); color: var(--on-accent);
+}
+.msg.is-emote-only .emote { height: 2.6em; margin: 0 0.08em; }
+.msg.is-out { animation: msgOut 0.45s ease-in forwards; }
+@keyframes msgOut { to { opacity: 0; transform: translateX(-12px); } }
+
+/* ===================== WIDGET: ÚLTIMO APOIO ===================== */
+.recent {
+  display: inline-flex; align-items: stretch;
+  height: calc(48px * var(--k));
+  background: var(--ink);
+  border-radius: var(--r);
+  box-shadow: inset 0 0 0 1px var(--line);
+  overflow: hidden;
+  white-space: nowrap;
+  animation: fadeUp 0.4s ease-out both;
+}
+.recent-tag {
+  display: flex; align-items: center;
+  padding: 0 calc(14px * var(--k));
+  background: var(--ink-3); color: var(--muted);
+  font-family: var(--display); font-weight: 700;
+  font-size: calc(15px * var(--k));
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.recent-text {
+  display: flex; align-items: center; gap: calc(10px * var(--k));
+  padding: 0 calc(16px * var(--k));
+  font-size: calc(19px * var(--k));
+  max-width: calc(320px * var(--k));
+  overflow: hidden;
+}
+.recent-text b { overflow: hidden; text-overflow: ellipsis; }
+.recent-text span { color: var(--accent); font-weight: 600; flex-shrink: 0; }
+
+/* ===================== ENCERRAMENTO: AGRADECIMENTO ===================== */
+.credits { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; }
+.credits-tag {
+  font-family: var(--display); font-weight: 700;
+  font-size: calc(18px * var(--k));
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--accent);
+}
+.credits-names { font-size: calc(26px * var(--k)); font-weight: 600; line-height: 1.5; }
+.credits-names i { display: inline-block; width: 6px; height: 6px; margin: 0 14px; vertical-align: middle; background: var(--faint); border-radius: 50%; }

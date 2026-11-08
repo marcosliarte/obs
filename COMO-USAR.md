@@ -14,19 +14,40 @@ Tudo é salvo sozinho no Supabase meio segundo depois de cada alteração. Abrir
 
 Veja o [Guia do OBS](GUIA-OBS-TWITCH.md): links, resolução e a posição exata de cada fonte.
 
+### Encaixe automático (sem recortar à mão)
+
+A seção **Encaixe no OBS** do painel mostra a posição, o tamanho e a proporção de cada janela da cena atual. Para o painel encaixar as fontes sozinho:
+
+1. No OBS: **Ferramentas → Configurações do servidor WebSocket → Ativar servidor WebSocket**. Copie a senha em **Mostrar informações de conexão**.
+2. No painel, abra **Encaixe no OBS**, cole a senha e clique em **Conectar ao OBS**. Use o painel no mesmo computador do OBS (endereço `ws://127.0.0.1:4455`).
+3. Escolha a **cena do OBS**. O painel já sugere a fonte de cada janela (webcam → dispositivo de captura, jogo → captura de jogo). Troque se precisar.
+4. Clique em **Encaixar fontes agora**.
+
+Cada fonte é posicionada, escalada e cortada para preencher a janela exatamente:
+
+- **Preencher (corta):** corta as sobras, sem barras pretas.
+- **Caber inteira:** mostra a imagem inteira, sobrando espaço.
+
+O overlay também vai para o topo da lista de fontes e ocupa o canvas inteiro. A escolha de fontes fica salva por cena e formato. Se mudar o layout (o formato da webcam, por exemplo), clique em encaixar de novo. A senha fica só neste navegador e nunca vai para o Supabase.
+
+**Formato da webcam:** nas cenas Jogo, React e React livre (16:9) você escolhe 16:9, 4:3 ou quadrada. Com 16:9, uma webcam comum entra sem corte nenhum, e o chat aproveita o espaço que sobra.
+
 ## 3. Configurações por cena
 
 | Cena | O que dá para editar |
 |------|----------------------|
-| Jogo | Nome do jogo |
-| React / React 2 cams | Filme, série (temporada e episódio) ou livre, título e observação |
+| Jogo | Nome do jogo, etiqueta ("Agora") e texto antes do jogo ("Jogando") |
+| React / React 2 cams | Filme, série (temporada e episódio) ou livre, título, observação, etiqueta, texto antes do título ("Reagindo a"), formato do episódio (`T{t} · E{e}`) e texto do modo livre |
+| React livre | Etiqueta e texto da faixa |
 | React sem chat | @ da faixa, cor da moldura, espessura da borda, tamanho e canto da webcam |
-| Just Chatting | Assunto |
+| Just Chatting | Assunto, etiqueta e texto antes do assunto |
 | IRL | Rótulo ("Explorando") e localização |
 | Começando / Volto já | Linha de apoio, título, destaque, texto, letreiro e contagem regressiva |
 | Encerramento | Linha de apoio, título, destaque, mensagem de despedida e letreiro |
 
 No letreiro, separe os itens com `|`, por exemplo: `Deixa o follow | Ativa as notificações`.
+
+**Todos os textos são editáveis.** Deixe um campo "antes do…" vazio para mostrar só o título. No texto livre, `*palavra*` fica em negrito: `Reagindo com o *chat*`. Os textos que aparecem em várias cenas (selo "Ao vivo", título do chat, "Destaque do chat", "Tocando agora", "Primeira vez", "Último apoio" e o agradecimento) ficam em **Textos gerais**.
 
 **Contagem regressiva:** escolha 5, 10 ou 15 minutos, ou digite um horário e clique em **Até este horário**. Ao zerar, a tela mostra "Agora" por 10 minutos e depois esconde o contador.
 
@@ -34,6 +55,7 @@ No letreiro, separe os itens com `|`, por exemplo: `Deixa o follow | Ativa as no
 
 - **Nick exibido:** aparece nas faixas de informação e nas telas cheias.
 - **Cor de destaque:** 7 cores prontas ou qualquer cor. O texto sobre a cor muda entre preto e branco automaticamente para manter a leitura.
+- **Mostrar o nick na faixa:** desligue para a faixa de informação ficar só com o título.
 
 ## 5. Chat
 
@@ -48,7 +70,15 @@ No letreiro, separe os itens com `|`, por exemplo: `Deixa o follow | Ativa as no
 
 **Filtros:** ocultar comandos (`!discord`), ocultar bots (lista editável) e palavras bloqueadas. Mensagens apagadas por moderadores e mensagens de usuários banidos somem do overlay sozinhas.
 
-**Destaque:** clique numa mensagem do chat no preview para fixá-la na tela. Para tirar, clique em **Remover destaque**.
+**Emotes 7TV, BTTV e FFZ:** os globais e os do seu canal aparecem como imagem, além dos emotes nativos da Twitch e do Kick. Mensagens só com emotes mostram os emotes maiores.
+
+**Primeira vez:** na Twitch, quem fala pela primeira vez no canal ganha um selo e um destaque leve.
+
+**Mensagens somem após (s):** com um valor maior que 0, cada mensagem sai da tela depois desse tempo. Fica mais limpo nas cenas de React.
+
+**Reconexão:** se a Twitch ou o Kick cair, ou se o OBS abrir sem internet, o chat tenta de novo sozinho (3 s, 6 s, 12 s… até 1 min).
+
+**Destaque:** clique numa mensagem do chat no preview para fixá-la na tela. Para tirar, clique em **Remover destaque**, ou defina **Destaque some após (s)** para ele sair sozinho.
 
 ## 6. Alertas
 
@@ -63,6 +93,8 @@ Ative em **Alertas**. Funcionam com os canais da Twitch e do Kick informados no 
 | Novo seguidor | Não | Não |
 
 Novos seguidores exigem login na plataforma (OAuth com servidor), o que este kit não usa.
+
+**Último apoio:** com a opção ligada, o rodapé mostra o apoio mais recente (por exemplo, "Ana · 5 subs de presente"), e a tela de **Encerramento** agradece a todos que apoiaram na live. Use **Limpar lista** no começo de cada live.
 
 O som é gerado na hora e não precisa de arquivo. No OBS, marque **Controlar áudio via OBS** na fonte Navegador para ouvir e ajustar o volume no mixer.
 
