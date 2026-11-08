@@ -19,6 +19,8 @@
   const ALERT_TYPES = ['sub', 'resub', 'gift', 'raid', 'cheer'];
   const CAM_ASPECTS = { '16:9': 225, '4:3': 300, '1:1': 400 };
   const EMOTE_PLATFORMS = ['twitch', 'kick', 'bttv', 'ffz', '7tv'];
+  const CHAT_PLATFORMS = ['twitch', 'kick', 'youtube'];
+  const GOAL_TYPES = ['subs', 'followers', 'custom'];
   const SIZES = { landscape: [1920, 1080], portrait: [1080, 1920] };
 
   const DEFAULT_BOTS = 'nightbot, streamelements, streamlabs, moobot, fossabot, wizebot, botrix, botrixoficial, kickbot';
@@ -49,20 +51,20 @@
       },
       layout: { camAspect: '4:3', showNick: true },
       endState: { message: 'Obrigado por assistir. Até a próxima live.' },
-      CHAT: { mode: 'none', url: '', kickChannel: '', kickChatroomId: '', ytVideoId: '' },
+      CHAT: { mode: 'none', url: '', kickChannel: '', kickChatroomId: '', ytVideoId: '', ytApiKey: '' },
       TWITCH: { channel: '' },
       bg: { type: 'none', color1: '#0a0a0c', color2: '#1a1a2e', angle: 135, imageUrl: '' },
       hideLive: false,
       square: false,
       chatFilter: {
         hideCommands: true, hideBots: true, bots: DEFAULT_BOTS, blocked: '', showBadges: true,
-        extEmotes: true, highlightFirst: true, hideAfter: 0
+        extEmotes: true, highlightFirst: true, hideAfter: 0, showPlatform: true
       },
       alerts: {
         enabled: false, sound: true, volume: 0.5, duration: 7,
         types: { sub: true, resub: true, gift: true, raid: true, cheer: true }
       },
-      goal: { enabled: false, title: 'Meta de subs', current: 0, target: 50, autoSubs: false },
+      goal: { enabled: false, type: 'subs', title: 'Meta de subs', current: 0, target: 50, autoSubs: false },
       countdown: { endsAt: 0 },
       texts: {
         start: { kicker: 'A live já vai começar', title: 'Começando', highlight: 'em instantes', sub: 'Pega a água, ajeita a cadeira. Já já a gente entra no ar.', ticker: 'Deixa o follow | Ativa as notificações | Chama a galera' },
@@ -205,7 +207,7 @@
     if (!Array.isArray(list)) return [];
     return list.filter(isObj).slice(0, 20).map(a => ({
       type: oneOf(a.type, ALERT_TYPES, 'sub'),
-      platform: a.platform === 'kick' ? 'kick' : 'twitch',
+      platform: oneOf(a.platform, CHAT_PLATFORMS, 'twitch'),
       user: clampText(a.user, 40),
       count: Math.max(0, Math.round(+a.count || 0)),
       at: +a.at || 0
@@ -248,6 +250,8 @@
 
     c.alerts.volume = clampNum(c.alerts.volume, 0, 1);
     c.alerts.duration = clampNum(c.alerts.duration, 3, 20);
+    c.goal.type = oneOf(c.goal.type, GOAL_TYPES, 'subs');
+    c.CHAT.ytApiKey = String(c.CHAT.ytApiKey).replace(/[^\w-]/g, '').slice(0, 60);
     c.goal.current = Math.max(0, Math.round(c.goal.current));
     c.goal.target = Math.max(1, Math.round(c.goal.target));
     c.countdown.endsAt = Math.max(0, c.countdown.endsAt);
@@ -261,7 +265,7 @@
     c.pinned = isObj(p) && (p.user || Array.isArray(p.segments))
       ? {
           user: clampText(p.user, 40),
-          platform: oneOf(p.platform, ['twitch', 'kick', 'test'], 'test'),
+          platform: oneOf(p.platform, CHAT_PLATFORMS.concat('test'), 'test'),
           color: isHexColor(p.color) ? p.color : userColor(p.user),
           segments: normalizeSegments(p.segments),
           at: +p.at || 0
@@ -523,6 +527,49 @@
     return null;
   }
 
+  /* ID do vídeo do YouTube a partir do ID, do link watch/live/youtu.be */
+  function ytVideoId(input) {
+    const s = String(input || '').trim();
+    if (/^[\w-]{11}$/.test(s)) return s;
+    const m = /(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([\w-]{11})/.exec(s);
+    return m ? m[1] : '';
+  }
+
+  /* item de liveChatMessages (YouTube Data API v3) → ação padronizada */
+  function youtubeItem(it) {
+    if (!isObj(it) || !isObj(it.snippet)) return null;
+    const sn = it.snippet, au = isObj(it.authorDetails) ? it.authorDetails : {};
+    const user = au.displayName || 'usuário';
+    const badges = [];
+    if (au.isChatOwner) badges.push('broadcaster');
+    if (au.isChatModerator) badges.push('mod');
+    if (au.isChatSponsor) badges.push('sub');
+    const text = sn.displayMessage || (sn.textMessageDetails && sn.textMessageDetails.messageText) || '';
+    const at = Date.parse(sn.publishedAt) || 0;
+    const msg = extra => Object.assign({ kind: 'message', id: it.id, user, badges, at, segments: text ? [{ type: 'text', text }] : [] }, extra);
+    switch (sn.type) {
+      case 'textMessageEvent': return msg({});
+      case 'superChatEvent': case 'superStickerEvent': {
+        const d = sn.superChatDetails || sn.superStickerDetails || {};
+        return Object.assign(msg({ highlight: true }), {
+          event: { type: 'cheer', platform: 'youtube', user, amountText: d.amountDisplayString || '', amount: Math.round((+d.amountMicros || 0) / 1e6) }
+        });
+      }
+      case 'newSponsorEvent': return { kind: 'event', at, event: { type: 'sub', platform: 'youtube', user } };
+      case 'memberMilestoneChatEvent': {
+        const months = +((sn.memberMilestoneChatDetails || {}).memberMonth) || 0;
+        return Object.assign(text ? msg({ highlight: true }) : { kind: 'event', at }, { event: { type: 'resub', platform: 'youtube', user, months } });
+      }
+      case 'membershipGiftingEvent': {
+        const n = +((sn.membershipGiftingDetails || {}).giftMembershipsCount) || 1;
+        return { kind: 'event', at, event: { type: 'gift', platform: 'youtube', user, count: n } };
+      }
+      case 'messageDeletedEvent': return { kind: 'delete', id: (sn.messageDeletedDetails || {}).deletedMessageId || '' };
+      case 'userBannedEvent': return { kind: 'ban', user: String(((sn.userBannedDetails || {}).bannedUserDetails || {}).displayName || '').toLowerCase() };
+    }
+    return null;
+  }
+
   /* ---------------------------------------------------------------------
      Expiração de widgets
   --------------------------------------------------------------------- */
@@ -551,7 +598,7 @@
       case 'gift': return a.count > 1 ? `${a.count} subs de presente` : 'sub de presente';
       case 'resub': return a.count ? `resub · ${plural(a.count, 'mês', 'meses')}` : 'resub';
       case 'raid': return a.count ? `${a.platform === 'kick' ? 'host' : 'raid'} · ${a.count}` : (a.platform === 'kick' ? 'host' : 'raid');
-      case 'cheer': return `${a.count} ${a.platform === 'kick' ? 'kicks' : 'bits'}`;
+      case 'cheer': return a.platform === 'youtube' ? 'super chat' : `${a.count} ${a.platform === 'kick' ? 'kicks' : 'bits'}`;
       default: return 'sub';
     }
   }
@@ -608,6 +655,11 @@
   /* textos do alerta para cada tipo de evento */
   function alertCopy(a) {
     const kick = a.platform === 'kick';
+    if (a.platform === 'youtube') {
+      if (a.type === 'cheer') return { label: 'Super Chat', title: a.user, detail: a.amountText ? `Mandou ${a.amountText}` : 'Mandou um Super Chat' };
+      if (a.type === 'sub') return { label: 'Novo membro', title: a.user, detail: 'Bem-vindo ao clube' };
+      if (a.type === 'gift') return { label: 'Assinatura de presente', title: a.user, detail: a.count > 1 ? `Presenteou ${plural(a.count, 'assinatura', 'assinaturas')}` : 'Presenteou uma assinatura' };
+    }
     switch (a.type) {
       case 'sub': return { label: 'Novo inscrito', title: a.user, detail: a.message || 'Bem-vindo ao time' };
       case 'resub': return { label: 'Reinscrição', title: a.user, detail: a.months ? plural(a.months, 'mês', 'meses') + ' de apoio' : 'Continua no time' };
@@ -642,10 +694,10 @@
   }
 
   return {
-    SCENES, FORMATS, CHAT_MODES, BG_TYPES, ALERT_TYPES, SIZES, CAM_ASPECTS,
+    SCENES, FORMATS, CHAT_MODES, BG_TYPES, ALERT_TYPES, SIZES, CAM_ASPECTS, GOAL_TYPES,
     defaults, normalizeConfig, mergeShape,
     escapeHtml, richText, fillTemplate, clampText, cleanChannel, safeUrl,
-    parseExtEmotes, emoteMap, applyEmoteMap, isEmoteOnly, kickEvent,
+    parseExtEmotes, emoteMap, applyEmoteMap, isEmoteOnly, kickEvent, ytVideoId, youtubeItem,
     trackActive, pinnedActive, mergeRecent, recentFromEvent, recentText, fitTransform, overlayTransform, aspectLabel,
     isHexColor, hexToRgb, hexToRgba, contrastText, userColor, readableNameColor,
     parseTwitchEmotes, parseKickContent, segmentsToHtml, segmentsToText, emoteUrl,

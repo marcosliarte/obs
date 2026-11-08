@@ -21,7 +21,7 @@ O painel mostra um preview em escala que é **idêntico** ao que o OBS renderiza
 
 ## Recursos
 
-- **Chat real** da Twitch e do Kick (separados ou juntos), com emotes, selos (streamer, mod, VIP, sub), filtro de comandos, bots e palavras, e remoção automática de mensagens apagadas ou de usuários banidos. YouTube e widgets externos entram por iframe.
+- **Chat real** da Twitch, do Kick e do YouTube (separados ou todos juntos, com o ícone da plataforma em cada mensagem), com emotes, selos (streamer, mod, VIP, sub), filtro de comandos, bots e palavras, e remoção automática de mensagens apagadas ou de usuários banidos. YouTube e widgets externos entram por iframe.
 - **Alertas** na tela para inscrição, reinscrição, sub de presente (agrupa "gift bombs"), raid/host e bits/kicks, com som. Botões de teste no painel disparam o alerta também no OBS.
 - **Encaixe automático no OBS:** o painel conecta no obs-websocket (já vem no OBS 28 ou mais novo), e cada webcam, jogo ou vídeo é posicionado, escalado e cortado para preencher a janela exata. Acabou o recorte manual com Alt.
 - **Todos os textos editáveis:** etiquetas, "Reagindo a", formato do episódio, selo "Ao vivo" e títulos dos widgets, com `*negrito*`.
@@ -29,7 +29,7 @@ O painel mostra um preview em escala que é **idêntico** ao que o OBS renderiza
 - **Último apoio** no rodapé e **agradecimento aos apoiadores** na tela de encerramento.
 - **Reconexão automática** do chat e **atualização instantânea** do OBS via Supabase Realtime (com polling de reserva).
 - **Destaque do chat:** clique numa mensagem no preview para fixá-la na tela. Ele pode sair sozinho após N segundos.
-- **Barra de meta** com botões +1/+5. Opcionalmente soma subs sozinha.
+- **Barra de meta** de subs, seguidores ou livre. Seguidores do Kick contam sozinhos; subs podem somar sozinhos.
 - **Contagem regressiva** nas telas Começando e Volto já (5, 10 ou 15 min, ou até um horário).
 - **Tocando agora** do Spotify com capa do álbum (OAuth PKCE, sem backend). Se o painel for fechado, o widget some quando a faixa acaba, sem ficar preso na tela.
 - **Redes sociais**, cor de destaque com contraste automático do texto, fundo (cor, gradiente ou imagem) recortado nas janelas de câmera e jogo.

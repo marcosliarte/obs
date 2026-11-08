@@ -63,10 +63,12 @@ No letreiro, separe os itens com `|`, por exemplo: `Deixa o follow | Ativa as no
 |-------|---------------|
 | Twitch | Conexão direta e anônima (só leitura) |
 | Kick | Conexão direta e anônima (só leitura). O chatroom ID é descoberto sozinho; se não for, preencha à mão |
-| Twitch + Kick | As duas juntas, com a marca T/K em cada mensagem |
-| YouTube Live | Chat oficial do YouTube por iframe (informe o ID do vídeo da live) |
+| Várias plataformas juntas | Twitch, Kick e YouTube no mesmo chat, com o ícone da plataforma em cada mensagem. Entram as que estiverem preenchidas |
+| YouTube Live | Com a chave da API: chat nativo (selos, Super Chats e membros nos alertas). Sem chave: chat oficial por iframe. Cole o link da live a cada transmissão |
 | TikTok / URL | Qualquer widget por URL (StreamElements, Streamlabs, Tikfinity…) |
 | Simulado | Mensagens de exemplo para testar o visual |
+
+**YouTube no chat:** crie uma chave em console.cloud.google.com (ative a *YouTube Data API v3*) e, em *Restrições do aplicativo*, limite a chave ao site do overlay, porque ela fica visível na config. Só o overlay da cena no ar consulta o YouTube, para economizar a cota grátis (dá umas 3 horas de live por dia). O TikTok não libera o chat para sites; para ele, use *Widget por URL* (ex.: Tikfinity).
 
 **Filtros:** ocultar comandos (`!discord`), ocultar bots (lista editável) e palavras bloqueadas. Mensagens apagadas por moderadores e mensagens de usuários banidos somem do overlay sozinhas.
 
@@ -100,7 +102,7 @@ O som é gerado na hora e não precisa de arquivo. No OBS, marque **Controlar á
 
 ## 7. Meta
 
-Ative em **Meta**, defina título e objetivo e use **+1 / +5 / −1**. Com **Somar subs automaticamente**, cada inscrição ou sub de presente soma na meta, desde que o painel esteja aberto durante a live.
+Ative em **Meta** e escolha o tipo: **Subs**, **Seguidores** ou **Livre**. Em **Seguidores**, com o canal do Kick preenchido, a barra conta sozinha (atualiza a cada minuto, mesmo com o painel fechado). Seguidores da Twitch exigem login, então use os botões. Defina título e objetivo e use **+1 / +5 / −1**. Com **Somar subs automaticamente**, cada inscrição ou sub de presente soma na meta, desde que o painel esteja aberto durante a live.
 
 ## 8. Spotify
 

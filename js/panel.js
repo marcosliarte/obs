@@ -72,6 +72,13 @@ function afterFieldChange(path, el) {
   if (path === 'state.color') markColor();
   if (path.startsWith('chatFilter.')) chatRepaint();
   if (path.startsWith('reactNoChat.')) updateRncUI();
+  if (path === 'goal.type') {
+    const titles = { subs: 'Meta de subs', followers: 'Meta de seguidores', custom: 'Meta' };
+    if (Object.values(titles).includes(cfg.goal.title)) { cfg.goal.title = titles[cfg.goal.type]; syncPanelFields(); }
+    followersSync();
+  }
+  if (path === 'goal.enabled') followersSync();
+  if (path === 'chatFilter.showPlatform') chatRepaint();
   if (path === 'chatFilter.hideAfter' || path === 'chatFilter.highlightFirst') chatRepaint();
   const typing = el.type === 'text' || el.type === 'number' || el.tagName === 'TEXTAREA';
   commit({ widgetsOnly: WIDGET_PATHS.test(path), delay: typing ? 160 : 0 });

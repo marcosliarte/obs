@@ -1,5 +1,5 @@
 /* =========================================================================
-   Chat — Twitch (tmi.js, anônimo) + Kick (Pusher, anônimo)
+   Chat — Twitch (tmi.js, anônimo) + Kick (Pusher, anônimo) + YouTube (API)
    As conexões vivem fora da cena: trocar/re-renderizar a cena não derruba
    o chat nem perde mensagens (o histórico é repintado).
    Também captura eventos (sub, gift, raid, bits) para os alertas.
@@ -14,8 +14,24 @@ const Chat = {
   kick: { ws: null, room: '', slug: '', pingTimer: null, retryTimer: null, fails: 0, seenEvents: new Map() },
   /* emotes 7TV / BTTV / FFZ: globais + canais conectados */
   ext: { global: null, channels: {}, map: {} },
+  /* YouTube: API oficial por polling (cota diária) — só consulta com a página visível */
+  yt: { vid: '', key: '', chatId: '', page: '', timer: null, gen: 0, status: '' },
   giftBombs: {}
 };
+
+/* No OBS, cada cena tem sua fonte Navegador e todas ficam abertas. Fora do
+   ar a página fica "hidden": usamos isso para não gastar a cota do YouTube
+   com 9 overlays ao mesmo tempo. */
+let pageActive = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+document.addEventListener('visibilitychange', () => { pageActive = document.visibilityState !== 'hidden'; });
+window.addEventListener('obsSourceActiveChanged', e => { pageActive = !!(e.detail && e.detail.active); });
+
+const PLATFORM_ICONS = {
+  twitch: '<svg viewBox="0 0 24 24"><path d="M4.3 3 3 6.4v13.4h4.6V22h2.6l2.4-2.2h3.7l5-4.9V3H4.3zm15.5 11.1-2.9 2.9h-4.6l-2.5 2.4V17H6V4.9h13.8v9.2zM17 8.4h-1.8v5H17v-5zm-5 0h-1.8v5H12v-5z"/></svg>',
+  kick: '<svg viewBox="0 0 24 24"><path d="M3 3h6.5v5h2V5.5h2V3H21v6.5h-2.5V12H16v.1h2.5v2.4H21V21h-7.5v-2.5h-2V16h-2v5H3V3z"/></svg>',
+  youtube: '<svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>'
+};
+const PLATFORM_NAMES = { twitch: 'Twitch', kick: 'Kick', youtube: 'YouTube' };
 
 /* espera entre tentativas: 3s, 6s, 12s… até 60s */
 function retryDelay(fails) { return Math.min(60000, 3000 * Math.pow(2, Math.max(0, fails - 1))); }
@@ -25,18 +41,30 @@ const MOCK_USERS = ['marina_o', 'pedrohq', 'cafe_amargo', 'ju.design', 'rafa_dev
 const MOCK_TEXTS = ['salve, cheguei agora', 'que jogada', 'boa noite chat', 'primeira vez aqui, curtindo muito', 'manda mais disso', 'GG', 'isso merece um corte', 'concordo total', 'voltou com tudo hoje', 'qual a configuração do mouse?'];
 const BADGE_LABEL = { broadcaster: 'Streamer', mod: 'Mod', vip: 'VIP', sub: 'Sub' };
 
-const IFRAME_MODES = ['youtube', 'tiktok', 'url'];
+/* chat por iframe: widgets externos, ou YouTube sem chave da API */
+function chatUsesIframe() {
+  const mode = cfg.CHAT.mode;
+  return mode === 'tiktok' || mode === 'url' || (mode === 'youtube' && !cfg.CHAT.ytApiKey);
+}
 
 function chatWants() {
   const mode = cfg.CHAT.mode;
   const alerts = cfg.alerts.enabled || (!isOBS && cfg.goal.autoSubs);
+  const yt = !!cfg.CHAT.ytApiKey && !!SK.ytVideoId(cfg.CHAT.ytVideoId);
   return {
     twitch: !!cfg.TWITCH.channel && (mode === 'twitch' || mode === 'multi' || alerts),
     kick: !!cfg.CHAT.kickChannel && (mode === 'kick' || mode === 'multi' || alerts),
+    youtube: yt && (mode === 'youtube' || mode === 'multi'),
     showTwitch: mode === 'twitch' || mode === 'multi',
     showKick: mode === 'kick' || mode === 'multi',
+    showYoutube: (mode === 'youtube' && !!cfg.CHAT.ytApiKey) || mode === 'multi',
     mock: mode === 'test'
   };
+}
+
+function chatShows(platform, w) {
+  return (platform === 'twitch' && w.showTwitch) || (platform === 'kick' && w.showKick)
+    || (platform === 'youtube' && w.showYoutube) || (platform === 'test' && w.mock);
 }
 
 /* Liga/desliga conexões conforme a config atual. Idempotente. */
@@ -50,6 +78,11 @@ function chatSync() {
   if (w.kick) connectKick(cfg.CHAT.kickChannel);
   else disconnectKick();
 
+  if (w.youtube) connectYoutube();
+  else disconnectYoutube();
+
+  followersSync();
+
   if (cfg.chatFilter.extEmotes && (w.twitch || w.kick || w.mock)) loadGlobalEmotes();
 
   if (w.mock && !Chat.mockTimer) mockTick();
@@ -57,14 +90,13 @@ function chatSync() {
 
   /* descarta mensagens de plataformas que não aparecem mais */
   const before = Chat.history.length;
-  Chat.history = Chat.history.filter(m =>
-    (m.platform === 'twitch' && w.showTwitch) || (m.platform === 'kick' && w.showKick) || (m.platform === 'test' && w.mock));
+  Chat.history = Chat.history.filter(m => chatShows(m.platform, w));
   if (Chat.history.length !== before) chatRepaint();
 }
 
 /* ---------- containers (janelas de chat da cena) ---------- */
 function chatAttach(el) {
-  if (IFRAME_MODES.includes(cfg.CHAT.mode)) {
+  if (chatUsesIframe()) {
     const src = chatIframeUrl();
     if (src) {
       el.innerHTML = `<iframe class="chat-iframe" src="${SK.escapeHtml(src)}" allowtransparency="true" frameborder="0" scrolling="no"></iframe>`;
@@ -79,8 +111,9 @@ function chatAttach(el) {
 function chatDetachAll() { Chat.containers.clear(); }
 
 function chatIframeUrl() {
-  if (cfg.CHAT.mode === 'youtube' && cfg.CHAT.ytVideoId.trim()) {
-    const vid = encodeURIComponent(cfg.CHAT.ytVideoId.trim());
+  const ytVid = SK.ytVideoId(cfg.CHAT.ytVideoId);
+  if (cfg.CHAT.mode === 'youtube' && ytVid) {
+    const vid = encodeURIComponent(ytVid);
     const domain = location.hostname || 'localhost';
     return `https://www.youtube.com/live_chat?v=${vid}&embed_domain=${encodeURIComponent(domain)}`;
   }
@@ -92,14 +125,15 @@ function chatHintText() {
   const mode = cfg.CHAT.mode;
   const w = chatWants();
   if (mode === 'none') return 'Chat desativado';
-  if ((mode === 'twitch' || mode === 'multi') && !cfg.TWITCH.channel) return 'Informe o canal da Twitch';
-  if ((mode === 'kick' || mode === 'multi') && !cfg.CHAT.kickChannel) return 'Informe o canal do Kick';
-  if (IFRAME_MODES.includes(mode)) return mode === 'youtube' ? 'Informe o ID da live do YouTube' : 'Informe a URL do widget';
-  if (w.showTwitch || w.showKick) {
-    const who = [w.showTwitch && 'Twitch/' + cfg.TWITCH.channel, w.showKick && 'Kick/' + cfg.CHAT.kickChannel].filter(Boolean).join(' + ');
-    return 'Aguardando mensagens — ' + who;
-  }
-  return '';
+  if (mode === 'twitch' && !cfg.TWITCH.channel) return 'Informe o canal da Twitch';
+  if (mode === 'kick' && !cfg.CHAT.kickChannel) return 'Informe o canal do Kick';
+  if (mode === 'youtube' && !SK.ytVideoId(cfg.CHAT.ytVideoId)) return 'Informe o link da live do YouTube';
+  if (mode === 'multi' && !cfg.TWITCH.channel && !cfg.CHAT.kickChannel && !w.youtube) return 'Informe ao menos um canal';
+  if (chatUsesIframe()) return 'Informe a URL do widget';
+  const who = [w.showTwitch && cfg.TWITCH.channel && 'Twitch/' + cfg.TWITCH.channel,
+    w.showKick && cfg.CHAT.kickChannel && 'Kick/' + cfg.CHAT.kickChannel, w.youtube && 'YouTube'].filter(Boolean).join(' + ');
+  if (Chat.yt.status) return 'YouTube: ' + Chat.yt.status + (who ? ' · ' + who : '');
+  return who ? 'Aguardando mensagens — ' + who : '';
 }
 
 function chatVisibleNow(m, now) {
@@ -146,8 +180,8 @@ function messageEl(m) {
   el.dataset.user = m.userKey;
   el.dataset.at = m.at;
   el.style.setProperty('--name', m.color);
-  const plat = cfg.CHAT.mode === 'multi' && m.platform !== 'test'
-    ? `<span class="msg-plat ${m.platform}">${m.platform === 'kick' ? 'K' : 'T'}</span>` : '';
+  const plat = cfg.chatFilter.showPlatform && cfg.CHAT.mode === 'multi' && PLATFORM_ICONS[m.platform]
+    ? `<span class="msg-plat ${m.platform}" title="${PLATFORM_NAMES[m.platform]}">${PLATFORM_ICONS[m.platform]}</span>` : '';
   const badges = cfg.chatFilter.showBadges
     ? m.badges.map(b => `<span class="msg-badge b-${b}">${BADGE_LABEL[b]}</span>`).join('') : '';
   const firstTag = first ? `<span class="msg-first">${SK.escapeHtml(cfg.labels.first)}</span>` : '';
@@ -162,7 +196,7 @@ function chatPush(m) {
   if (Chat.seen.size > 500) Chat.seen = new Set([...Chat.seen].slice(-250));
 
   const w = chatWants();
-  const visible = (m.platform === 'twitch' && w.showTwitch) || (m.platform === 'kick' && w.showKick) || m.platform === 'test';
+  const visible = chatShows(m.platform, w) || m.platform === 'test';
   if (!visible || SK.shouldHideMessage(m, cfg.chatFilter)) return;
 
   m.color = SK.readableNameColor(m.color, m.user);
@@ -257,6 +291,121 @@ async function loadChannelEmotes(key) {
   Chat.ext.channels[key] = [].concat(...lists);
   rebuildEmoteMap();
   console.log(`[emotes] ${Chat.ext.channels[key].length} emotes de ${key}`);
+}
+
+/* ---------- YOUTUBE (Data API v3) ----------
+   1 consulta para achar o chat da live (videos) + 1 a cada ~6 s no OBS
+   (15 s no painel). A cota grátis (10.000/dia) dá ~3 h de live por dia;
+   peça aumento no Google Cloud se precisar. */
+const YT_API = 'https://www.googleapis.com/youtube/v3/';
+
+function disconnectYoutube() {
+  const y = Chat.yt;
+  y.gen++;
+  clearTimeout(y.timer);
+  Object.assign(y, { timer: null, chatId: '', page: '', vid: '', key: '', status: '' });
+}
+
+function connectYoutube() {
+  const y = Chat.yt, vid = SK.ytVideoId(cfg.CHAT.ytVideoId), key = cfg.CHAT.ytApiKey;
+  if (OFFLINE || (y.timer && y.vid === vid && y.key === key)) return;
+  disconnectYoutube();
+  y.vid = vid; y.key = key;
+  ytLoop(y.gen);
+}
+
+async function ytLoop(gen) {
+  const y = Chat.yt;
+  if (gen !== y.gen) return;
+  let wait = 3000;                              /* fora do ar: só confere de novo */
+  if (pageActive) {
+    try { wait = Math.max(isOBS ? 6000 : 15000, await ytFetch(gen)); }
+    catch (e) {
+      y.status = e.message; wait = e.wait || 60000;
+      console.warn('[youtube]', e.message);
+      chatRepaintHints();
+    }
+  }
+  if (gen === y.gen) y.timer = setTimeout(() => ytLoop(gen), wait);
+}
+
+async function ytGet(path, params) {
+  const r = await fetch(YT_API + path + '?' + new URLSearchParams(Object.assign({ key: Chat.yt.key }, params)));
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) return j;
+  const reason = (((j.error || {}).errors || [])[0] || {}).reason || String(r.status);
+  const msg = { quotaExceeded: 'a cota diária da API acabou', liveChatEnded: 'a live terminou', liveChatNotFound: 'chat da live não encontrado',
+    keyInvalid: 'chave da API inválida', forbidden: 'chave sem permissão para este site' }[reason] || 'erro da API (' + reason + ')';
+  const err = new Error(msg);
+  err.wait = reason === 'quotaExceeded' ? 15 * 60000 : reason === 'keyInvalid' ? 10 * 60000 : 60000;
+  if (reason === 'liveChatEnded' || reason === 'liveChatNotFound') { Chat.yt.chatId = ''; Chat.yt.page = ''; }
+  throw err;
+}
+
+async function ytFetch(gen) {
+  const y = Chat.yt;
+  if (!y.chatId) {
+    const v = await ytGet('videos', { part: 'liveStreamingDetails', id: y.vid });
+    const det = v.items && v.items[0] && v.items[0].liveStreamingDetails;
+    if (!det || !det.activeLiveChatId) { const e = new Error('esse vídeo não está ao vivo'); e.wait = 60000; throw e; }
+    if (gen !== y.gen) return 0;
+    y.chatId = det.activeLiveChatId;
+  }
+  const backlog = !y.page;
+  const d = await ytGet('liveChat/messages', Object.assign(
+    { liveChatId: y.chatId, part: 'snippet,authorDetails', maxResults: '200' }, y.page ? { pageToken: y.page } : {}));
+  if (gen !== y.gen) return 0;
+  y.page = d.nextPageToken || y.page;
+  if (y.status) { y.status = ''; chatRepaintHints(); }
+  const items = d.items || [];
+  for (const it of backlog ? items.slice(-15) : items) handleYoutubeItem(it);
+  return d.pollingIntervalMillis || 5000;
+}
+
+function handleYoutubeItem(it) {
+  const a = SK.youtubeItem(it);
+  if (!a) return;
+  if (a.kind === 'message') chatPush(makeMessage('youtube', a));
+  else if (a.kind === 'delete') { const id = 'youtube:' + a.id; chatRemove(m => m.id === id); }
+  else if (a.kind === 'ban') { const key = 'youtube:' + a.user; chatRemove(m => m.userKey === key); }
+  /* alerta só de evento recente: ao voltar ao ar, a página busca o que perdeu */
+  if (a.event && Date.now() - (a.at || 0) < 30000) onStreamEvent(a.event);
+}
+
+function chatRepaintHints() {
+  if (isOBS) return;
+  for (const el of Chat.containers) if (el.querySelector('.chat-hint') || !el.children.length) paintContainer(el);
+}
+
+/* ---------- SEGUIDORES (Kick, público) para a meta ---------- */
+const Followers = { kick: null, slug: '', timer: null, gen: 0 };
+
+function followersSync() {
+  const want = !OFFLINE && cfg.goal.enabled && cfg.goal.type === 'followers' && !!cfg.CHAT.kickChannel;
+  if (!want) {
+    Followers.gen++; clearTimeout(Followers.timer);
+    Object.assign(Followers, { timer: null, slug: '', kick: null });
+    return;
+  }
+  if (Followers.slug === cfg.CHAT.kickChannel) return;
+  Followers.gen++; clearTimeout(Followers.timer);
+  Followers.slug = cfg.CHAT.kickChannel; Followers.kick = null;
+  const gen = Followers.gen;
+  const tick = async () => {
+    try {
+      const r = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(Followers.slug)}`, { headers: { Accept: 'application/json' } });
+      const j = r.ok ? await r.json() : null;
+      if (gen === Followers.gen && j && typeof j.followers_count === 'number') setFollowers(j.followers_count);
+    } catch (_) { /* Kick bloqueou ou sem rede — tenta no próximo minuto */ }
+    if (gen === Followers.gen) Followers.timer = setTimeout(tick, 60000);
+  };
+  tick();
+}
+
+function setFollowers(n) {
+  Followers.kick = n;
+  if (!isOBS && cfg.goal.current !== n) { cfg.goal.current = n; syncPanelFields(); scheduleSave(); }
+  renderWidgets();
 }
 
 /* ---------- TWITCH ---------- */

@@ -206,6 +206,42 @@ async function main() {
   check('senha do OBS nunca vai para a config', await run(`
     return !JSON.stringify(cfg).includes('4455') && !('obs' in cfg)`));
 
+  check('chat com várias plataformas mostra o ícone de cada uma', await run(`
+    T.click('[data-scene="game"]');
+    T.select('[data-bind="CHAT.mode"]', 'multi');
+    await T.sleep(100);
+    const ytVisible = !T.$('[data-bind="CHAT.ytApiKey"]').closest('[data-show]').hidden;
+    chatPush(makeMessage('kick', { id: 'k1', user: 'kicker', segments: [{ type: 'text', text: 'oi do kick' }] }));
+    chatPush(makeMessage('twitch', { id: 't1', user: 'twitcher', segments: [{ type: 'text', text: 'oi da twitch' }] }));
+    chatPush(makeMessage('youtube', { id: 'y1', user: 'tuber', segments: [{ type: 'text', text: 'oi do yt' }] }));
+    await T.sleep(50);
+    const icon = p => !!T.$('#scene .msg-plat.' + p + ' svg');
+    const ok = ytVisible && icon('kick') && icon('twitch') && icon('youtube');
+    T.toggle('[data-bind="chatFilter.showPlatform"]', false);
+    await T.sleep(50);
+    const off = !T.$('#scene .msg-plat');
+    T.toggle('[data-bind="chatFilter.showPlatform"]', true);
+    T.select('[data-bind="CHAT.mode"]', 'test');
+    return ok && off`));
+
+  check('YouTube sem chave usa o chat oficial por iframe', await run(`
+    T.select('[data-bind="CHAT.mode"]', 'youtube');
+    T.type('[data-bind="CHAT.ytVideoId"]', 'https://youtube.com/live/dQw4w9WgXcQ');
+    await T.sleep(300);
+    const src = (T.$('#scene .chat-iframe') || {}).src || '';
+    T.select('[data-bind="CHAT.mode"]', 'test');
+    return src.includes('live_chat?v=dQw4w9WgXcQ')`));
+
+  check('meta de seguidores: título e contagem ao vivo', await run(`
+    T.toggle('[data-bind="goal.enabled"]', true);
+    cfg.goal.title = 'Meta de subs';
+    T.select('[data-bind="goal.type"]', 'followers');
+    await T.sleep(50);
+    setFollowers(37);
+    await T.sleep(50);
+    const autoHidden = T.$('[data-bind="goal.autoSubs"]').closest('[data-show]').hidden;
+    return cfg.goal.title === 'Meta de seguidores' && autoHidden && T.$('#scene .goal-count').textContent.startsWith('37')`));
+
   check('nenhum erro de JS durante a sessão', await run(`return window.__skErrors.length === 0`),
     await run(`return window.__skErrors.join(' | ')`));
 

@@ -629,3 +629,13 @@ body.obs .ph { display: none; }
 }
 .credits-names { font-size: calc(26px * var(--k)); font-weight: 600; line-height: 1.5; }
 .credits-names i { display: inline-block; width: 6px; height: 6px; margin: 0 14px; vertical-align: middle; background: var(--faint); border-radius: 50%; }
+
+/* ícone da plataforma (chat com várias plataformas) */
+.msg-plat {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.4em; height: 1.4em; padding: 0;
+  vertical-align: -0.3em;
+  border-radius: 3px;
+}
+.msg-plat svg { width: 70%; height: 70%; fill: currentColor; }
+.msg-plat.youtube { background: #ff0000; color: #fff; }

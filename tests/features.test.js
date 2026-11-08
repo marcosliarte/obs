@@ -120,3 +120,42 @@ test('encaixe no OBS: preencher corta o excesso, caber centraliza', () => {
   assert.equal(SK.aspectLabel(1400, 788), '16:9');
   assert.equal(SK.aspectLabel(400, 676), '0.59:1');
 });
+
+test('YouTube: ID do vídeo a partir de qualquer link', () => {
+  assert.equal(SK.ytVideoId('dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+  assert.equal(SK.ytVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1'), 'dQw4w9WgXcQ');
+  assert.equal(SK.ytVideoId('https://youtube.com/live/dQw4w9WgXcQ?si=abc'), 'dQw4w9WgXcQ');
+  assert.equal(SK.ytVideoId('https://youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+  assert.equal(SK.ytVideoId('não é link'), '');
+});
+
+test('YouTube: itens do chat viram mensagens, eventos e moderação', () => {
+  const t = '2026-11-08T03:00:00Z';
+  const msg = SK.youtubeItem({ id: 'y1', snippet: { type: 'textMessageEvent', publishedAt: t, displayMessage: 'salve <b>' },
+    authorDetails: { displayName: 'Ana', isChatModerator: true, isChatSponsor: true } });
+  assert.equal(msg.kind, 'message');
+  assert.deepEqual(msg.badges, ['mod', 'sub']);
+  assert.equal(msg.segments[0].text, 'salve <b>');
+  assert.equal(msg.at, Date.parse(t));
+  const sc = SK.youtubeItem({ id: 'y2', snippet: { type: 'superChatEvent', displayMessage: 'toma', superChatDetails: { amountMicros: '5000000', amountDisplayString: 'R$ 5,00' } }, authorDetails: { displayName: 'Bia' } });
+  assert.equal(sc.highlight, true);
+  assert.deepEqual([sc.event.type, sc.event.platform, sc.event.amountText], ['cheer', 'youtube', 'R$ 5,00']);
+  assert.equal(SK.alertCopy(sc.event).label, 'Super Chat');
+  assert.equal(SK.alertCopy(sc.event).detail, 'Mandou R$ 5,00');
+  assert.equal(SK.youtubeItem({ snippet: { type: 'newSponsorEvent' }, authorDetails: { displayName: 'Cris' } }).event.type, 'sub');
+  assert.equal(SK.youtubeItem({ snippet: { type: 'membershipGiftingEvent', membershipGiftingDetails: { giftMembershipsCount: 5 } }, authorDetails: {} }).event.count, 5);
+  assert.deepEqual(SK.youtubeItem({ snippet: { type: 'messageDeletedEvent', messageDeletedDetails: { deletedMessageId: 'y1' } } }), { kind: 'delete', id: 'y1' });
+  assert.equal(SK.youtubeItem({ snippet: { type: 'userBannedEvent', userBannedDetails: { bannedUserDetails: { displayName: 'Troll' } } } }).user, 'troll');
+  assert.equal(SK.youtubeItem({ snippet: { type: 'pollEvent' } }), null);
+  assert.equal(SK.youtubeItem(null), null);
+});
+
+test('meta: tipo validado e plataforma YouTube aceita', () => {
+  assert.equal(SK.normalizeConfig({ goal: { type: 'followers' } }).goal.type, 'followers');
+  assert.equal(SK.normalizeConfig({ goal: { type: 'hack' } }).goal.type, 'subs');
+  assert.equal(SK.normalizeConfig({ CHAT: { ytApiKey: 'AIza_x-1"><script>' } }).CHAT.ytApiKey, 'AIza_x-1script');
+  assert.equal(SK.normalizeConfig({ pinned: { user: 'a', platform: 'youtube', segments: [] } }).pinned.platform, 'youtube');
+  const r = SK.recentFromEvent({ type: 'cheer', platform: 'youtube', user: 'Bia', amount: 5 }, 1e12);
+  assert.equal(r.platform, 'youtube');
+  assert.equal(SK.recentText(r), 'super chat');
+});

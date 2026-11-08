@@ -296,10 +296,12 @@ function spotifyHtml() {
 function goalHtml() {
   const g = cfg.goal;
   if (!g.enabled) return '';
-  const pct = SK.goalPercent(g.current, g.target);
+  /* seguidores: número ao vivo da Kick quando disponível */
+  const current = g.type === 'followers' && Followers.kick != null ? Followers.kick : g.current;
+  const pct = SK.goalPercent(current, g.target);
   return `
     <div class="goal${pct >= 100 ? ' is-done' : ''}">
-      <div class="goal-head"><span class="goal-title">${esc(g.title)}</span><span class="goal-count">${g.current}<span>/${g.target}</span></span></div>
+      <div class="goal-head"><span class="goal-title">${esc(g.title)}</span><span class="goal-count">${current}<span>/${g.target}</span></span></div>
       <div class="goal-track"><i style="width:${pct}%"></i></div>
     </div>`;
 }

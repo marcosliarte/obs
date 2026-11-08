@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/overlay.css?v=3.1.0">
-<link rel="stylesheet" href="css/panel.css?v=3.1.0">
+<link rel="stylesheet" href="css/overlay.css?v=3.2.0">
+<link rel="stylesheet" href="css/panel.css?v=3.2.0">
 </head>
 <body>
 
@@ -235,7 +235,7 @@
             <option value="test">Simulado (demonstração)</option>
             <option value="twitch">Twitch</option>
             <option value="kick">Kick</option>
-            <option value="multi">Twitch + Kick</option>
+            <option value="multi">Várias plataformas juntas</option>
             <option value="youtube">YouTube Live</option>
             <option value="tiktok">TikTok (widget)</option>
             <option value="url">Widget por URL</option>
@@ -247,13 +247,17 @@
         </div>
         <label class="field" data-show="CHAT.mode=kick,multi"><span class="lbl">Chatroom ID do Kick <em>automático; preencha se não aparecer</em></span>
           <input type="text" data-bind="CHAT.kickChatroomId" data-clean="digits" placeholder="ex.: 73203653"></label>
-        <label class="field" data-show="CHAT.mode=youtube"><span class="lbl">ID do vídeo da live</span><input type="text" data-bind="CHAT.ytVideoId"></label>
+        <label class="field" data-show="CHAT.mode=youtube,multi"><span class="lbl">Link da live do YouTube <em>troque a cada live</em></span><input type="text" data-bind="CHAT.ytVideoId" placeholder="youtube.com/live/… ou o ID"></label>
+        <label class="field" data-show="CHAT.mode=youtube,multi"><span class="lbl">Chave da API do YouTube <em>opcional no modo YouTube</em></span><input type="text" data-bind="CHAT.ytApiKey" placeholder="AIza…" spellcheck="false" autocomplete="off"></label>
+        <p class="note" data-show="CHAT.mode=youtube,multi">Com a chave, o YouTube entra no mesmo chat (com selos e Super Chats nos alertas). Crie em console.cloud.google.com → YouTube Data API v3, e <b>restrinja a chave ao site do overlay</b>: ela fica visível na config. Sem chave, o modo YouTube usa o chat oficial por iframe.</p>
+        <p class="note" data-show="CHAT.mode=multi">Entram as plataformas preenchidas: Twitch, Kick e YouTube. O TikTok não libera o chat para sites; para ele, use “Widget por URL” (ex.: Tikfinity).</p>
         <label class="field" data-show="CHAT.mode=tiktok,url"><span class="lbl">URL do widget</span><input type="url" data-bind="CHAT.url" placeholder="https://"></label>
 
         <div class="checks">
           <label class="switch"><input type="checkbox" data-bind="chatFilter.showBadges"><span>Mostrar selos (mod, VIP, sub)</span></label>
           <label class="switch"><input type="checkbox" data-bind="chatFilter.hideCommands"><span>Ocultar comandos (!)</span></label>
           <label class="switch"><input type="checkbox" data-bind="chatFilter.hideBots"><span>Ocultar bots</span></label>
+          <label class="switch" data-show="CHAT.mode=multi"><input type="checkbox" data-bind="chatFilter.showPlatform"><span>Ícone da plataforma em cada mensagem</span></label>
           <label class="switch"><input type="checkbox" data-bind="chatFilter.extEmotes"><span>Emotes 7TV, BTTV e FFZ</span></label>
           <label class="switch"><input type="checkbox" data-bind="chatFilter.highlightFirst"><span>Destacar quem fala pela primeira vez (Twitch)</span></label>
         </div>
@@ -313,6 +317,14 @@
       <summary class="sec-head"><span class="sec-title">Meta</span></summary>
       <div class="sec-body">
         <label class="switch"><input type="checkbox" data-bind="goal.enabled"><span>Mostrar barra de meta</span></label>
+        <label class="field"><span class="lbl">Tipo</span>
+          <select data-bind="goal.type">
+            <option value="subs">Subs</option>
+            <option value="followers">Seguidores</option>
+            <option value="custom">Livre (manual)</option>
+          </select>
+        </label>
+        <p class="note" data-show="goal.type=followers">Com o canal do Kick preenchido, conta sozinho (atualiza a cada minuto). Seguidores da Twitch exigem login: use os botões.</p>
         <label class="field"><span class="lbl">Título</span><input type="text" data-bind="goal.title" maxlength="40"></label>
         <div class="row">
           <label class="field"><span class="lbl">Atual</span><input type="number" min="0" data-type="number" data-bind="goal.current"></label>
@@ -324,7 +336,7 @@
           <button class="btn btn-sm" data-action="goal-add" data-n="5">+5</button>
           <button class="btn btn-sm btn-ghost" data-action="goal-reset">Zerar</button>
         </div>
-        <label class="switch"><input type="checkbox" data-bind="goal.autoSubs"><span>Somar subs automaticamente <em>(com o painel aberto)</em></span></label>
+        <label class="switch" data-show="goal.type=subs"><input type="checkbox" data-bind="goal.autoSubs"><span>Somar subs automaticamente <em>(com o painel aberto)</em></span></label>
       </div>
     </details>
 
@@ -419,15 +431,15 @@
 <div class="toast chrome" id="toast" hidden></div>
 
 <!-- ?v= evita que o OBS/GitHub Pages misture arquivos de versões diferentes -->
-<script src="js/core.js?v=3.1.0"></script>
-<script src="js/env.js?v=3.1.0"></script>
-<script src="js/store.js?v=3.1.0"></script>
-<script src="js/chat.js?v=3.1.0"></script>
-<script src="js/alerts.js?v=3.1.0"></script>
-<script src="js/spotify.js?v=3.1.0"></script>
-<script src="js/scenes.js?v=3.1.0"></script>
-<script src="js/obs.js?v=3.1.0"></script>
-<script src="js/panel.js?v=3.1.0"></script>
-<script src="js/main.js?v=3.1.0"></script>
+<script src="js/core.js?v=3.2.0"></script>
+<script src="js/env.js?v=3.2.0"></script>
+<script src="js/store.js?v=3.2.0"></script>
+<script src="js/chat.js?v=3.2.0"></script>
+<script src="js/alerts.js?v=3.2.0"></script>
+<script src="js/spotify.js?v=3.2.0"></script>
+<script src="js/scenes.js?v=3.2.0"></script>
+<script src="js/obs.js?v=3.2.0"></script>
+<script src="js/panel.js?v=3.2.0"></script>
+<script src="js/main.js?v=3.2.0"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@ function applyRemote(fresh) {
   setConfig(fresh);
   const key = structuralKey(cfg);
   if (key !== _lastKey) { _lastKey = key; renderScene(); chatSync(); }
-  else { renderWidgets(); tickClocks(); }
+  else { renderWidgets(); tickClocks(); followersSync(); }
   checkAlertTest();
   return true;
 }
