@@ -104,6 +104,20 @@ body.obs .ph { display: none; }
 .live-irl { top: 40px; left: 40px; }
 @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+/* nome da pessoa na webcam */
+.cam-name {
+  position: absolute; left: 18px; bottom: 18px; z-index: 4;
+  max-width: calc(100% - 36px);
+  padding: calc(5px * var(--k)) calc(14px * var(--k));
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--display); font-weight: 700;
+  font-size: calc(24px * var(--k));
+  line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-radius: 2px;
+}
+
 /* ===================== CHAT ===================== */
 .win-chat { background: rgba(14, 15, 18, 0.88); }
 .win-chat::after { box-shadow: inset 0 0 0 1px var(--line); }

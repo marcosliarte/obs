@@ -23,11 +23,12 @@ function hole(kind, pos, label, hint, opts = {}) {
       <div class="win-body hole" data-key="${key}" data-label="${esc(opts.title || label)}">
         <div class="ph"><span class="ph-label">${label}</span><span class="ph-hint">${hint}</span></div>
         ${live}
+        ${opts.name ? `<div class="cam-name">${esc(opts.name)}</div>` : ''}
       </div>
     </div>`;
 }
 
-const camWin = (pos, label = 'Webcam', key = 'cam') => hole('cam', pos, label, 'Dispositivo de captura de vídeo', { accent: true, live: true, key });
+const camWin = (pos, label = 'Webcam', key = 'cam', name = '') => hole('cam', pos, label, 'Dispositivo de captura de vídeo', { accent: true, live: true, key, name });
 const gameWin = pos => hole('game', pos, 'Captura de jogo', 'Game capture · 16:9', { title: 'Jogo' });
 const videoWin = pos => hole('video', pos, reactPlaceholder(), 'Navegador · mídia · captura de tela', { title: 'Vídeo' });
 
@@ -135,6 +136,17 @@ function sideColumn() {
   return { cam: px(1480, 40, 400, h), chat: px(1480, 40 + h + 24, 400, 1080 - 40 - (40 + h + 24)) };
 }
 
+/* React com várias webcams: [left, top, width, height] de cada pessoa */
+function reactCamRects(fmt) {
+  const three = cfg.reactCams.count === 3;
+  if (fmt === 'landscape') return three
+    ? [40, 382, 724].map(t => [1480, t, 400, 316])
+    : [40, 552].map(t => [1480, t, 400, 488]);
+  return three
+    ? [40, 382, 724].map(l => [l, 627, 316, 421])
+    : [40, 552].map(l => [l, 627, 488, 663]);
+}
+
 const Scenes = {
   game(fmt) {
     const g = cfg.gameState, L2 = cfg.labels;
@@ -166,14 +178,16 @@ const Scenes = {
 
   react2cam(fmt) {
     const showInfo = cfg.reactState.type !== 'free';
-    if (fmt === 'landscape') return videoWin(L.main)
-      + camWin(px(1480, 40, 400, 488), 'Webcam 1', 'cam1') + camWin(px(1480, 552, 400, 488), 'Webcam 2', 'cam2')
+    const rects = reactCamRects(fmt);
+    const cams = rects.map(([l, t, w, h], i) =>
+      camWin(px(l, t, w, h), `Webcam ${i + 1}`, `cam${i + 1}`, cfg.reactCams[`name${i + 1}`].trim())).join('');
+    if (fmt === 'landscape') return videoWin(L.main) + cams
       + (showInfo ? infoStrip(L.info, reactTag(), reactTitleHtml()) : '')
       + footerRow(showInfo ? L.footer : px(40, 852, 1400, 92)) + slot('pinned', L.pinned);
-    return videoWin(L.pTop)
-      + camWin(px(40, 627, 488, 663), 'Webcam 1', 'cam1') + camWin(px(552, 627, 488, 663), 'Webcam 2', 'cam2')
-      + (showInfo ? infoStrip(px(40, 1314, 1000, 80), reactTag(), reactTitleHtml()) : '')
-      + footerRow(px(40, showInfo ? 1418 : 1314, 1000, 172)) + slot('pinned', L.pPinned);
+    const y = rects[0][1] + rects[0][3] + 24;   /* logo abaixo das webcams */
+    return videoWin(L.pTop) + cams
+      + (showInfo ? infoStrip(px(40, y, 1000, 80), reactTag(), reactTitleHtml()) : '')
+      + footerRow(px(40, showInfo ? y + 104 : y, 1000, 172)) + slot('pinned', L.pPinned);
   },
 
   /* vídeo sem moldura + webcam com borda fina e faixa do @ (sem chat, sem "Ao vivo") */

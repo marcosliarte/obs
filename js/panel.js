@@ -9,7 +9,7 @@
      data-scenes="react react2cam"    seção só aparece nessas cenas
 ========================================================================= */
 const SCENE_LABELS = {
-  game: 'Jogo', react: 'React', reactfree: 'React livre', react2cam: 'React 2 cams', reactnochat: 'React sem chat',
+  game: 'Jogo', react: 'React', reactfree: 'React livre', react2cam: 'React 2/3 cams', reactnochat: 'React sem chat',
   chatting: 'Just Chatting', irl: 'IRL', start: 'Começando', brb: 'Volto já', end: 'Encerramento'
 };
 const COLOR_PRESETS = ['#d6f24b', '#4f8cff', '#ff4d6d', '#ff8a3d', '#22c7a9', '#a77bff', '#f5f5f5'];

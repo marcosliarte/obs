@@ -32,6 +32,8 @@
       gameState: { name: 'Seu jogo aqui', nick: '@seunick' },
       /* React sem chat: config própria da moldura da webcam (handle vazio = nick exibido) */
       reactNoChat: { handle: '', showHandle: true, color: '#ffffff', border: 2, size: 'm', corner: 'br' },
+      /* React com várias webcams: 2 ou 3 pessoas; nome vazio = sem etiqueta */
+      reactCams: { count: 2, name1: '', name2: '', name3: '' },
       irlState: { kicker: 'Explorando', location: 'Sua localização' },
       social: {
         tiktok: { on: false, handle: '' },
@@ -229,6 +231,9 @@
     rnc.size = oneOf(rnc.size, RNC_SIZES, 'm');
     rnc.corner = oneOf(rnc.corner, RNC_CORNERS, 'br');
     rnc.handle = clampText(rnc.handle, 40);
+    const rc = c.reactCams;
+    rc.count = oneOf(rc.count, [2, 3], 2);
+    for (const k of ['name1', 'name2', 'name3']) rc[k] = clampText(rc[k], 30);
 
     for (const k of Object.keys(c.labels)) c.labels[k] = clampText(c.labels[k], 80);
     c.layout.camAspect = oneOf(c.layout.camAspect, Object.keys(CAM_ASPECTS), '4:3');

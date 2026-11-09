@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/overlay.css?v=3.2.1">
-<link rel="stylesheet" href="css/panel.css?v=3.2.1">
+<link rel="stylesheet" href="css/overlay.css?v=3.3.0">
+<link rel="stylesheet" href="css/panel.css?v=3.3.0">
 </head>
 <body>
 
@@ -77,6 +77,18 @@
           <label class="field" data-show="reactState.type=series"><span class="lbl">Formato <em>{t} = temporada, {e} = episódio</em></span><input type="text" data-bind="labels.episode" maxlength="40"></label>
           <label class="field"><span class="lbl">Observação <em>opcional</em></span><input type="text" data-bind="reactState.note" placeholder="ex.: parte 2, rewatch" maxlength="40"></label>
         </div>
+      </div>
+
+      <div class="sec-body" data-scenes="react2cam">
+        <label class="field"><span class="lbl">Pessoas</span>
+          <select data-type="number" data-bind="reactCams.count">
+            <option value="2">2 pessoas</option>
+            <option value="3">3 pessoas</option>
+          </select>
+        </label>
+        <label class="field"><span class="lbl">Nome na webcam 1 <em>vazio = sem nome</em></span><input type="text" data-bind="reactCams.name1" maxlength="30"></label>
+        <label class="field"><span class="lbl">Nome na webcam 2 <em>vazio = sem nome</em></span><input type="text" data-bind="reactCams.name2" maxlength="30"></label>
+        <label class="field" data-show="reactCams.count=3"><span class="lbl">Nome na webcam 3 <em>vazio = sem nome</em></span><input type="text" data-bind="reactCams.name3" maxlength="30"></label>
       </div>
 
       <div class="sec-body" data-scenes="reactfree">
@@ -435,15 +447,15 @@
 <div class="toast chrome" id="toast" hidden></div>
 
 <!-- ?v= evita que o OBS/GitHub Pages misture arquivos de versões diferentes -->
-<script src="js/core.js?v=3.2.1"></script>
-<script src="js/env.js?v=3.2.1"></script>
-<script src="js/store.js?v=3.2.1"></script>
-<script src="js/chat.js?v=3.2.1"></script>
-<script src="js/alerts.js?v=3.2.1"></script>
-<script src="js/spotify.js?v=3.2.1"></script>
-<script src="js/scenes.js?v=3.2.1"></script>
-<script src="js/obs.js?v=3.2.1"></script>
-<script src="js/panel.js?v=3.2.1"></script>
-<script src="js/main.js?v=3.2.1"></script>
+<script src="js/core.js?v=3.3.0"></script>
+<script src="js/env.js?v=3.3.0"></script>
+<script src="js/store.js?v=3.3.0"></script>
+<script src="js/chat.js?v=3.3.0"></script>
+<script src="js/alerts.js?v=3.3.0"></script>
+<script src="js/spotify.js?v=3.3.0"></script>
+<script src="js/scenes.js?v=3.3.0"></script>
+<script src="js/obs.js?v=3.3.0"></script>
+<script src="js/panel.js?v=3.3.0"></script>
+<script src="js/main.js?v=3.3.0"></script>
 </body>
 </html>

@@ -102,6 +102,17 @@ async function main() {
     await T.sleep(400);
     return !T.$('[data-bind="reactState.season"]').closest('[data-show]').hidden && T.$('#scene').textContent.includes('T4 · E')`));
 
+  check('React com 3 pessoas: terceira webcam e nomes', await run(`
+    const field3 = T.$('[data-bind="reactCams.name3"]').closest('[data-show]');
+    const hiddenBefore = field3.hidden;
+    T.select('[data-bind="reactCams.count"]', '3');
+    T.type('[data-bind="reactCams.name3"]', 'Caio');
+    await T.sleep(400);
+    return hiddenBefore && !field3.hidden && cfg.reactCams.count === 3
+      && document.querySelectorAll('#scene .win-cam').length === 3
+      && T.$('#scene [data-key="cam3"] .cam-name').textContent === 'Caio'
+      && holeRects().some(r => r.key === 'cam3')`));
+
   check('meta: botão +5 atualiza o widget', await run(`
     T.toggle('[data-bind="goal.enabled"]', true);
     T.click('[data-action="goal-add"][data-n="5"]');

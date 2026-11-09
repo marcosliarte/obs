@@ -124,6 +124,24 @@ for (const format of ['landscape', 'portrait']) {
   check('xss: nenhuma tag injetada', !/<img src="?x"? onerror/i.test(dom));
 }
 
+/* 3b. React com 3 webcams e nomes, nos dois formatos */
+{
+  const three = Object.assign({}, FIXTURE, { reactCams: { count: 3, name1: 'Ana', name2: '<b>Bia</b>', name3: 'Caio' } });
+  const land = load(url({ obs: '1', scene: 'react2cam', format: 'landscape' }, three), '1920,1080', 'obs-react3cam-landscape');
+  baseChecks('3 cams/landscape', land);
+  check('3 cams/landscape: três janelas', count(land, /data-key="cam\d"/g) === 3);
+  check('3 cams/landscape: terceira posição', land.includes('left:1480px;top:724px;width:400px;height:316px;'));
+  check('3 cams/landscape: nomes', land.includes('>Ana</div>') && land.includes('>Caio</div>'));
+  check('3 cams/landscape: nome escapado', land.includes('&lt;b&gt;Bia&lt;/b&gt;'));
+  const port = load(url({ obs: '1', scene: 'react2cam', format: 'portrait' }, three), '1080,1920', 'obs-react3cam-portrait');
+  baseChecks('3 cams/portrait', port);
+  check('3 cams/portrait: três janelas', count(port, /data-key="cam\d"/g) === 3);
+  check('3 cams/portrait: terceira posição', port.includes('left:724px;top:627px;width:316px;height:421px;'));
+  check('3 cams/portrait: faixa logo abaixo', port.includes('left:40px;top:1072px;width:1000px;height:80px;'));
+  const two = load(url({ obs: '1', scene: 'react2cam', format: 'landscape' }, FIXTURE), '1920,1080');
+  check('2 cams: padrão sem terceira janela nem nomes', count(two, /data-key="cam\d"/g) === 2 && !two.includes('class="cam-name"'));
+}
+
 /* 4. config antiga (antes da v3) continua funcionando */
 {
   const legacy = { state: { color: '#ff5b7f', scene: 'react', format: 'landscape' }, CHAT: { mode: 'kick', kickChannel: 'liart3', kickChatroomId: '73203653' },

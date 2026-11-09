@@ -28,6 +28,13 @@ test('textos editáveis: negrito seguro e modelo de episódio', () => {
   assert.equal(c.layout.camAspect, '4:3');
 });
 
+test('React com várias webcams: pessoas e nomes validados', () => {
+  assert.deepEqual(SK.normalizeConfig({}).reactCams, { count: 2, name1: '', name2: '', name3: '' });
+  assert.equal(SK.normalizeConfig({ reactCams: { count: '3' } }).reactCams.count, 3);
+  assert.equal(SK.normalizeConfig({ reactCams: { count: 7 } }).reactCams.count, 2);
+  assert.equal(SK.normalizeConfig({ reactCams: { name3: 'x'.repeat(99) } }).reactCams.name3.length, 30);
+});
+
 test('emotes 7TV/BTTV/FFZ: parse das APIs e aplicação no texto', () => {
   const bttv = SK.parseExtEmotes('bttv', { channelEmotes: [{ id: '5f1b0186cf6d2144653d2970', code: 'catJAM' }], sharedEmotes: [{ id: 'abc', code: 'pepeD' }] });
   const ffz = SK.parseExtEmotes('ffz', [{ id: 123, code: 'LULW' }]);

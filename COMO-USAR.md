@@ -37,7 +37,7 @@ O overlay também vai para o topo da lista de fontes e ocupa o canvas inteiro. A
 | Cena | O que dá para editar |
 |------|----------------------|
 | Jogo | Nome do jogo, etiqueta ("Agora") e texto antes do jogo ("Jogando") |
-| React / React 2 cams | Filme, série (temporada e episódio) ou livre, título, observação, etiqueta, texto antes do título ("Reagindo a"), formato do episódio (`T{t} · E{e}`) e texto do modo livre |
+| React / React 2/3 cams | Filme, série (temporada e episódio) ou livre, título, observação, etiqueta, texto antes do título ("Reagindo a"), formato do episódio (`T{t} · E{e}`) e texto do modo livre. Na React 2/3 cams: quantidade de pessoas e o nome em cada webcam |
 | React livre | Etiqueta e texto da faixa |
 | React sem chat | @ da faixa, cor da moldura, espessura da borda, tamanho e canto da webcam |
 | Just Chatting | Assunto, etiqueta e texto antes do assunto |

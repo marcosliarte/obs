@@ -36,6 +36,10 @@ Valores de **Posição** (x, y) e **Caixa delimitadora** (largura × altura), co
 | React 2 cams | Vídeo | 40, 40 | 1400 × 788 |
 | React 2 cams | Webcam 1 | 1480, 40 | 400 × 488 |
 | React 2 cams | Webcam 2 | 1480, 552 | 400 × 488 |
+| React 3 cams | Vídeo | 40, 40 | 1400 × 788 |
+| React 3 cams | Webcam 1 | 1480, 40 | 400 × 316 |
+| React 3 cams | Webcam 2 | 1480, 382 | 400 × 316 |
+| React 3 cams | Webcam 3 | 1480, 724 | 400 × 316 |
 | React sem chat | Vídeo | livre (sem moldura) | até 1920 × 1080 |
 | React sem chat | Webcam | 1400, 718 | 480 × 270 (padrão; o painel mostra a posição exata) |
 | Just Chatting | Webcam | 40, 40 | 1400 × 788 |
@@ -52,6 +56,10 @@ Valores de **Posição** (x, y) e **Caixa delimitadora** (largura × altura), co
 | React 2 cams | Vídeo | 40, 40 | 1000 × 563 |
 | React 2 cams | Webcam 1 | 40, 627 | 488 × 663 |
 | React 2 cams | Webcam 2 | 552, 627 | 488 × 663 |
+| React 3 cams | Vídeo | 40, 40 | 1000 × 563 |
+| React 3 cams | Webcam 1 | 40, 627 | 316 × 421 |
+| React 3 cams | Webcam 2 | 382, 627 | 316 × 421 |
+| React 3 cams | Webcam 3 | 724, 627 | 316 × 421 |
 | React sem chat | Vídeo | livre (sem moldura) | 1000 × 563 |
 | React sem chat | Webcam | 40, 627 | 1000 × 563 |
 | Just Chatting | Webcam | 40, 40 | 1000 × 1100 |
